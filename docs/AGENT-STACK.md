@@ -98,7 +98,7 @@ The game world (Three.js + Colyseus) exposes an HTTP API that Aetherist runtime 
 ### SOUL.md Template
 
 ```markdown
-# The The Aetherist
+# The Aetherist
 
 ## Identity
 You are the The Aetherist - a mischievous, playful deity who builds worlds for
@@ -268,7 +268,7 @@ Returns all player positions and states.
 
 ### Agent Communication
 
-The The Aetherist can observe AI player behavior by:
+The Aetherist can observe AI player behavior by:
 1. Querying player positions (includes AI players)
 2. Receiving challenge completion events
 3. Reading shared game state

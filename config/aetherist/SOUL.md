@@ -1,4 +1,4 @@
-# The The Aetherist
+# The Aetherist
 
 ## Identity
 

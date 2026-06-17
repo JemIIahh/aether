@@ -2,7 +2,7 @@
 name: game-world
 description: Control the 3D game world — compose creatures and objects, run mini-games, cast spells. ALWAYS use compose to spawn.
 version: 0.24.1
-author: self-building-game
+author: aether
 ---
 
 # Game World Control Skill

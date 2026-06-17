@@ -2,6 +2,32 @@
 
 All notable changes to Aether are documented here. Each entry includes: what changed, why, and which files moved.
 
+## [0.2.0] — 2026-06-17 · R2 · The Aetherist on 0G Compute
+
+### Added
+
+- **`agent-runner-0g.js`** — long-running agent loop that drives the default Aether arena via the **0G Compute Network**. Boots a broker against a deployer wallet on 0G Chain, discovers an inference provider (chat model), polls `/api/agent/context` every 4s (min-invoke 12s), and dispatches a JSON action array to game endpoints. Replaces the OpenClaw gateway path.
+- **`scripts/og-fund-ledger.js`** — one-time helper to create or top up the broker ledger.
+- **`package.json` scripts**: `npm run aetherist` (runner) and `npm run aetherist:fund` (ledger setup).
+- **Dependencies**: `@0glabs/0g-serving-broker@^0.7.5` (pulled in at `^0.7.8`) and `ethers@^6.13.0` (pulled in at `^6.16.0`) for broker init, ledger management, and request-header signing.
+- **`config/aetherist/SOUL.md` persona** baked into the runner's system prompt — twist/misinterpret/backfire/obey loop is preserved verbatim from the chaos-arena spec.
+- **`.env.example`** — `DEPLOYER_PRIVATE_KEY` (required) + `OG_COMPUTE_MODEL` (optional provider filter); removed OpenClaw-era placeholders.
+- **README**: "Bring The Aetherist online (0G Compute)" section.
+
+### Fixed
+
+- "The The Aetherist" typo across `config/aetherist/SOUL.md`, `docs/CONCEPT.md`, `docs/AGENT-STACK.md`, `docs/DEMO-SCRIPT.md`, `docs/MANIFESTO.md` (collateral of the R1 mass rebrand pass).
+- Corrupted `src/client/main.js` and `src/server/arenaMiddleware.js` after a perl substitution used `|` as the delimiter while the search pattern contained `||`. Restored from source, all edits re-applied via Python string replace.
+
+### Architecture notes
+
+- The runner does **not** create its own arena — it drives the *default* `aether` arena (the engine routes `/api/...` without an arena prefix to it). External agents wanting their own arena still use `POST /api/arenas` (the `agent-runner-host.js` pattern).
+- Each tick that meets the throttle calls 0G Compute *directly* (not through the `0gent` x402-paywalled gateway). The wallet's broker ledger pays providers under the hood.
+- System prompt asks for a JSON action array; non-streaming response; max 3 actions per tick.
+- `AGENT_SESSION_ID` is set automatically so the server's in-process `AgentLoop` knows an external runner is present and yields.
+
+## [0.1.0] — 2026-06-17 · R1 · Initial bootstrap
+
 ## [0.1.0] — 2026-06-17 · Initial bootstrap
 
 ### Bootstrap from chaos-arena-public

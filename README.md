@@ -71,6 +71,20 @@ npm run dev
 - Click **"Play as Guest"** — no database, no Privy credentials, no 0G tokens needed
 - Postgres is optional; without it the server uses in-memory storage
 
+### Bring The Aetherist online (0G Compute)
+
+```bash
+# 1. One-time: fund the broker ledger (5 0G is enough for ~100 inferences)
+DEPLOYER_PRIVATE_KEY=0x... npm run aetherist:fund
+
+# 2. Run the agent loop alongside the game server
+DEPLOYER_PRIVATE_KEY=0x... npm run aetherist
+```
+
+The runner discovers an inference provider on 0G Compute, polls the game's
+`/api/agent/context` every 4s, and dispatches actions via 0G's signed
+broker headers. The ledger is debited automatically per call.
+
 To run with 0G chain features, copy `.env.example` to `.env` and fill in:
 - `VITE_PRIVY_APP_ID` + `VITE_PRIVY_CLIENT_ID` for wallet auth
 - `TREASURY_ADDRESS` (your 0G receiving address) for bribes
@@ -138,7 +152,7 @@ Game Server (Express + Colyseus, port 3000)
 Aligned to Zero Cup cutoffs:
 
 - ✅ **R1 · Group Stage (Jun 23)** — playable build on 0G, wallet flow live
-- ⏳ **R2 · Round of 32 (Jun 28)** — The Aetherist's reasoning on 0G Compute
+- 🛠 **R2 · Round of 32 (Jun 28)** — The Aetherist's reasoning on 0G Compute *(integration code shipped — needs a funded broker ledger to demo)*
 - ⏳ **R3 · Round of 16 (Jul 4)** — Agent memory + arena replays on 0G Storage
 - ⏳ **R4 · Quarter Finals (Jul 8)** — Polish, demo video, public landing
 - 🏆 **R5–6 · Semi Finals + Finals (Jul 12–19)** — Community vote

@@ -1,4 +1,4 @@
-# Self-Building Game: Research & Feasibility Report
+# Aether: Research & Feasibility Report
 
 ## Executive Summary
 

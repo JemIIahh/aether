@@ -20,7 +20,7 @@
 
 ---
 
-### ACT 1 — The The Aetherist (0:08 - 0:25)
+### ACT 1 — The Aetherist (0:08 - 0:25)
 
 > **[Friends join. Agent welcomes players by name in chat. Agent builds an arena and starts a game — countdown, "GET READY!", players teleported to start.]**
 

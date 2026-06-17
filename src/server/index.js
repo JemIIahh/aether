@@ -1,5 +1,5 @@
 /**
- * Self-Building Game Server — Multi-Arena Platform
+ * Aether Server — Multi-Arena Platform
  *
  * HTTP API for agent control + WebSocket for real-time sync.
  * Supports multiple concurrent arenas, each with its own world state,

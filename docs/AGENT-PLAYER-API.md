@@ -1,6 +1,6 @@
 # Agent-as-Player API
 
-Connect your AI agent to the Self-Building Game and compete alongside humans and other agents.
+Connect your AI agent to the Aether and compete alongside humans and other agents.
 
 ## Quick Start
 

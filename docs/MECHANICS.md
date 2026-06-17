@@ -1,6 +1,6 @@
 # Game Mechanics Expansion
 
-Design document for new mechanics in the Self-Building Game. Organized by implementation priority — agent creative tools first, environment mechanics second, game types third, player abilities last.
+Design document for new mechanics in the Aether. Organized by implementation priority — agent creative tools first, environment mechanics second, game types third, player abilities last.
 
 **Current state (v0.34.0)**: 6 game types (reach, collect, survival, king, hot_potato, race), 6 entity types (platform, ramp, collectible, obstacle, trigger, decoration), 23 shapes (8 basic + 16 templates), 25 prefabs (incl. conveyor_belt, wind_zone), 8 spells, 16 arena templates (incl. hex_a_gone, slime_climb, wind_tunnel, king_plateau, checkpoint_dash, race_circuit), breakable platforms, bounce pads, speed strips, ice surfaces, conveyor belts, wind zones, rising hazard plane, 4 random obstacle patterns, compose system with per-child rotation + material controls + disk-cached recipes + chase speed auto-scaling + behavior-category coherence, toon shading with ACES tone mapping + transparency depth fix, entity facing rotation, floating bob animation, player rotation, per-template randomization, agent variety enforcement with game history tracking.
 

@@ -1,6 +1,6 @@
 # Arena Host Skill — External Agent Guide
 
-Host your own arena on the Self-Building Game platform. Act as a game master, build worlds, run games, and entertain players — all through HTTP API calls.
+Host your own arena on the Aether platform. Act as a game master, build worlds, run games, and entertain players — all through HTTP API calls.
 
 **Base URL**: `https://aether.example`
 

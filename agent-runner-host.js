@@ -1,7 +1,7 @@
 /**
  * agent-runner-host.js — External Arena Agent (Reference Implementation)
  *
- * Demonstrates how ANY AI agent can host an arena on the Self-Building Game platform.
+ * Demonstrates how ANY AI agent can host an arena on the Aether platform.
  * Uses the Anthropic Messages API directly (no Aetherist runtime, no custom framework).
  *
  * Usage:

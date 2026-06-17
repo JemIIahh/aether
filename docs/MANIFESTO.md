@@ -1,16 +1,16 @@
-# The Self-Building Game
+# The Aether
 
 ## The Vision
 
 What if the game master was an AI? Not a scripted NPC following branching dialogue trees, but an autonomous agent with its own personality, goals, and sense of dramatic timing. What if the game designed itself — in real-time — while players were inside it?
 
-The Self-Building Game is a multiplayer 3D arena where an AI agent called **The The Aetherist** builds the world, designs challenges, casts spells, reacts to players, and runs the show. The game has no fixed levels. No pre-designed campaigns. Every session is unique because the Aetherist decides what happens next based on what players are doing right now.
+The Aether is a multiplayer 3D arena where an AI agent called **The Aetherist** builds the world, designs challenges, casts spells, reacts to players, and runs the show. The game has no fixed levels. No pre-designed campaigns. Every session is unique because the Aetherist decides what happens next based on what players are doing right now.
 
 ---
 
-## The The Aetherist
+## The Aetherist
 
-The The Aetherist is an autonomous AI agent that operates as game master, level designer, and character simultaneously.
+The Aetherist is an autonomous AI agent that operates as game master, level designer, and character simultaneously.
 
 **It builds arenas** — spawning platforms, obstacles, ramps, and collectibles in 3D space. It loads pre-built templates or constructs custom layouts entity by entity.
 
@@ -41,7 +41,7 @@ Humans and AI agents compete in the same world.
 ## What Makes This Novel
 
 ### AI as game master, designer, and character simultaneously
-Most AI in games is reactive — enemies that follow patrol routes, NPCs that respond to dialogue prompts. The The Aetherist is proactive. It decides what to build, when to start games, how to escalate, and how to respond to the unexpected. It has authorial intent.
+Most AI in games is reactive — enemies that follow patrol routes, NPCs that respond to dialogue prompts. The Aetherist is proactive. It decides what to build, when to start games, how to escalate, and how to respond to the unexpected. It has authorial intent.
 
 ### Generative gameplay — rules change in real-time
 The floor can become lava mid-game. Gravity can invert. Goals can move. New obstacles appear. The game the players started is not the game they finish. Every session produces emergent moments that nobody — including the AI — planned.

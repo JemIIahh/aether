@@ -1,7 +1,7 @@
 /**
  * Game Player Skill for Aetherist runtime
  *
- * Allows external AI agents to PLAY the Self-Building Game as a player.
+ * Allows external AI agents to PLAY the Aether as a player.
  * Unlike game-world-skill.js (which controls the world as the The Aetherist),
  * this skill lets agents join, move, chat, bribe, and compete.
  */

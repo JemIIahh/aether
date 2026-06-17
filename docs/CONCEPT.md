@@ -1,4 +1,4 @@
-# Technical Concept: Self-Building Game
+# Technical Concept: Aether
 
 ## Core Idea
 
@@ -67,7 +67,7 @@ Claude (Anthropic) via Aetherist runtime Gateway
 
 ## Agent Design
 
-### The The Aetherist
+### The Aetherist
 
 **Role**: Autonomous game master — builds arenas, runs games, entertains players
 

@@ -1,4 +1,4 @@
-# Product Requirements Document: Self-Building Game
+# Product Requirements Document: Aether
 
 ## Overview
 
@@ -160,7 +160,7 @@ Audience votes on next action:
 ## Open Questions
 
 1. **Streaming platform**: Twitch vs YouTube? (Affects chat integration)
-2. **Project name**: "Self-Building Game" is placeholder
+2. **Project name**: "Aether" is placeholder
 3. **Chaos magician design**: What does the avatar look like?
 4. **Voice or text**: TTS for agent, or text overlay only?
 
