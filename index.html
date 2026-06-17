@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aether</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: system-ui, sans-serif; }
+    #game { width: 100vw; height: 100vh; }
+    #ui {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 15px;
+      border-radius: 8px;
+      max-width: 300px;
+    }
+    #ui h1 { font-size: 18px; margin-bottom: 10px; }
+    #stats { font-size: 12px; opacity: 0.8; }
+    #entities { font-size: 11px; margin-top: 10px; max-height: 150px; overflow-y: auto; }
+    .entity-item { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      z-index: 140;
+    }
+    #controls kbd {
+      display: inline-block;
+      min-width: 28px; height: 28px; line-height: 28px;
+      text-align: center; font-size: 12px; font-weight: 600; color: #fff;
+      background: linear-gradient(180deg, #555 0%, #333 100%);
+      border: 1px solid #666; border-bottom: 3px solid #222;
+      border-radius: 5px; padding: 0 6px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      margin: 1px; vertical-align: middle;
+    }
+    #controls .key-wide { min-width: 64px; }
+    #controls .controls-row {
+      display: flex; align-items: flex-end; gap: 16px; justify-content: center;
+    }
+    .control-group {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .control-label {
+      font-size: 9px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .keys-wasd { display: flex; flex-direction: column; align-items: center; }
+    #login-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a15 100%);
+    }
+    .login-container {
+      text-align: center;
+      padding: 40px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      min-width: 320px;
+    }
+    .login-container h1 {
+      color: #fff;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .login-subtitle {
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .login-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .login-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .login-btn:hover { transform: scale(1.02); }
+    .login-btn:active { transform: scale(0.98); }
+    .login-btn.twitter {
+      background: #1d9bf0;
+      color: white;
+    }
+    .login-btn.guest {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.8);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .login-btn.guest:hover { background: rgba(255,255,255,0.15); }
+    .login-btn.continue {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: white;
+    }
+    .login-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .login-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .loader-spinner, .btn-spinner {
+      width: 24px; height: 24px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #1d9bf0;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .loader-spinner { width: 36px; height: 36px; }
+    .btn-spinner { width: 16px; height: 16px; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .login-status {
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      margin-top: 16px;
+      min-height: 18px;
+    }
+    /* Arena Lobby */
+    #arena-lobby {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a15 100%);
+    }
+    .lobby-container {
+      text-align: center;
+      padding: 30px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      width: 460px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .lobby-container h1 {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    .lobby-subtitle {
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .arena-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: left;
+    }
+    .arena-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .arena-card:hover {
+      background: rgba(155,89,182,0.15);
+      border-color: rgba(155,89,182,0.5);
+      transform: scale(1.01);
+    }
+    .arena-card.default {
+      border-color: rgba(155,89,182,0.6);
+      background: linear-gradient(135deg, rgba(155,89,182,0.12), rgba(255,255,255,0.04));
+      position: relative;
+    }
+    .arena-card.default::before {
+      content: 'FEATURED';
+      position: absolute;
+      top: -1px;
+      right: 12px;
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 0 0 4px 4px;
+      letter-spacing: 1px;
+    }
+    .arena-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .arena-card-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+    }
+    .arena-card-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .arena-card-badge.playing {
+      background: rgba(46,204,113,0.2);
+      color: #2ecc71;
+    }
+    .arena-card-badge.lobby {
+      background: rgba(155,89,182,0.2);
+      color: #9b59b6;
+    }
+    .arena-card-badge.countdown {
+      background: rgba(243,156,18,0.2);
+      color: #f39c12;
+    }
+    .arena-card-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+    }
+    .arena-card-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .arena-card-desc {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 4px;
+    }
+    .arena-loading {
+      color: rgba(255,255,255,0.4);
+      font-size: 14px;
+      padding: 20px;
+    }
+    #announcements {
+      position: fixed;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      pointer-events: none;
+      text-align: center;
+    }
+    .announcement {
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 15px 30px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      animation: announceIn 0.3s ease-out forwards;
+      border: 2px solid;
+    }
+    .announcement.agent {
+      border-color: #9b59b6;
+      background: linear-gradient(135deg, rgba(155, 89, 182, 0.9), rgba(0, 0, 0, 0.9));
+    }
+    .announcement.system {
+      border-color: #f39c12;
+      background: linear-gradient(135deg, rgba(243, 156, 18, 0.9), rgba(0, 0, 0, 0.9));
+    }
+    .announcement.challenge {
+      border-color: #2ecc71;
+      background: linear-gradient(135deg, rgba(46, 204, 113, 0.9), rgba(0, 0, 0, 0.9));
+    }
+    .announcement.fade-out {
+      animation: announceOut 0.5s ease-in forwards;
+    }
+    @keyframes announceIn {
+      from { opacity: 0; transform: scale(0.8) translateY(-20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes announceOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.8); }
+    }
+    #game-status {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 16px 32px;
+      border-radius: 12px;
+      color: white;
+      min-width: 200px;
+      text-align: center;
+      transition: all 0.4s ease;
+      backdrop-filter: blur(4px);
+    }
+    /* Compact centered layout for active/ended phases */
+    #game-status.playing {
+      padding: 10px 20px;
+      border: 2px solid #2ecc71;
+    }
+    #game-status.countdown {
+      border: 2px solid #f39c12;
+      animation: statusPulse 1s ease-in-out infinite;
+    }
+    @keyframes statusPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(243,156,18,0.3); }
+      50% { box-shadow: 0 0 20px rgba(243,156,18,0.6); }
+    }
+    #game-phase {
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    #game-timer {
+      font-size: 28px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 5px;
+    }
+    #game-type {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+    /* King of the Hill score overlay */
+    #score-overlay {
+      position: fixed;
+      top: 60px;
+      left: 20px;
+      z-index: 150;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 15px;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      border: 2px solid #f1c40f;
+      min-width: 160px;
+    }
+    #score-overlay .score-title {
+      font-weight: bold;
+      color: #f1c40f;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    #score-overlay .score-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+    #score-overlay .score-bar {
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      margin-top: 2px;
+    }
+    #score-overlay .score-bar-fill {
+      height: 100%;
+      background: #f1c40f;
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+    /* Hot Potato curse timer */
+    #curse-timer {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 150;
+      background: rgba(100, 0, 0, 0.85);
+      padding: 12px 18px;
+      border-radius: 8px;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      border: 2px solid #e74c3c;
+      min-width: 120px;
+    }
+    #curse-timer.pulsing {
+      animation: cursePulse 0.5s ease-in-out infinite alternate;
+    }
+    @keyframes cursePulse {
+      from { border-color: #e74c3c; box-shadow: 0 0 10px rgba(231, 76, 60, 0.5); }
+      to { border-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+    }
+    /* Race checkpoint display */
+    #checkpoint-display {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 150;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 15px;
+      border-radius: 8px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      border: 2px solid #2ecc71;
+    }
+    /* Chat Panel */
+    #chat-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 360px;
+      z-index: 150;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      max-height: 300px;
+      opacity: 0.7;
+      transition: opacity 0.3s ease;
+    }
+    #chat-panel:hover, #chat-panel:focus-within { opacity: 1; }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      font-size: 13px;
+      max-height: 240px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
+    }
+    .chat-msg {
+      margin-bottom: 4px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    .chat-msg .sender {
+      font-weight: bold;
+      margin-right: 4px;
+    }
+    .chat-msg.player .sender { color: #ecf0f1; }
+    .chat-msg.agent .sender { color: #9b59b6; }
+    .chat-msg.system .sender { color: #f39c12; }
+    .chat-msg .text { color: #ddd; }
+    .chat-msg .text .at-agent { color: #9b59b6; font-weight: bold; }
+    #chat-input {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      padding: 8px 12px;
+      font-size: 13px;
+      outline: none;
+      border-radius: 0 0 8px 8px;
+    }
+    #chat-input::placeholder { color: rgba(255,255,255,0.4); }
+    /* Leaderboard Panel — L key overlay */
+    #leaderboard-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      max-width: 90vw;
+      max-height: 70vh;
+      z-index: 300;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(8px);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      display: none;
+      overflow-y: auto;
+    }
+    #leaderboard-panel h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: #f1c40f;
+      text-align: center;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .lb-entry {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .lb-entry:nth-child(1) { color: #f1c40f; }
+    .lb-entry:nth-child(2) { color: #bdc3c7; }
+    .lb-entry:nth-child(3) { color: #cd7f32; }
+    .lb-rank { color: inherit; width: 30px; font-weight: bold; }
+    .lb-name { flex: 1; }
+    .lb-wins { color: #2ecc71; width: 50px; text-align: right; font-weight: bold; }
+    .lb-games { color: #95a5a6; width: 50px; text-align: right; font-size: 12px; }
+    /* Game status phase variants */
+    #game-status.building { border: 2px solid #9b59b6; animation: statusPulse 1.5s ease-in-out infinite; }
+    #game-status.lobby { border: 2px solid rgba(155,89,182,0.6); }
+    #game-status.ended {
+      padding: 10px 20px;
+      border: 2px solid #e74c3c;
+    }
+    /* Portrait rotation overlay — mobile only */
+    #rotate-overlay {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,0.95);
+      color: white;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      font-family: system-ui, sans-serif;
+    }
+    #rotate-overlay .rotate-icon {
+      font-size: 64px;
+      animation: rotateHint 2s ease-in-out infinite;
+    }
+    #rotate-overlay p {
+      font-size: 18px;
+      opacity: 0.8;
+    }
+    @keyframes rotateHint {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+    @media (orientation: portrait) and (max-width: 768px) {
+      #rotate-overlay { display: flex; }
+    }
+    /* Spectator overlay */
+    #spectator-overlay {
+      display: none;
+    }
+    #drama-meter {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      width: 200px;
+      z-index: 200;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      border-radius: 8px;
+      color: white;
+    }
+    #drama-meter h4 {
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: #e74c3c;
+    }
+    .drama-bar {
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #drama-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2ecc71, #f1c40f, #e74c3c);
+      width: 0%;
+      transition: width 0.5s ease;
+      border-radius: 4px;
+    }
+    .drama-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    #agent-status {
+      position: fixed;
+      bottom: 140px;
+      right: 20px;
+      width: 200px;
+      z-index: 200;
+      background: rgba(155, 89, 182, 0.85);
+      padding: 10px;
+      border-radius: 8px;
+      color: white;
+      font-size: 13px;
+    }
+    #kill-feed {
+      position: fixed;
+      top: 20px;
+      right: 200px;
+      width: 250px;
+      z-index: 200;
+      text-align: right;
+    }
+    .kill-entry {
+      background: rgba(0,0,0,0.7);
+      color: #e74c3c;
+      padding: 4px 10px;
+      margin-bottom: 3px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      animation: killFadeIn 0.3s ease;
+    }
+    @keyframes killFadeIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    /* Debug panel */
+    #debug-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 200;
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    #bribe-panel {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 150;
+    }
+    .bribe-btn {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .bribe-btn:hover { transform: scale(1.05); }
+    .bribe-btn:active { transform: scale(0.95); }
+    .bribe-balance {
+      text-align: center;
+      color: #f1c40f;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    /* Bribe modal */
+    #bribe-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .bribe-modal-content {
+      background: #1a1a2e;
+      border: 1px solid rgba(243,156,18,0.4);
+      border-radius: 12px;
+      padding: 20px;
+      min-width: 300px;
+      max-width: 380px;
+    }
+    .bribe-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .bribe-modal-header h3 {
+      color: #f39c12;
+      font-size: 16px;
+      margin: 0;
+    }
+    .bribe-modal-close {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .bribe-modal-close:hover { color: white; }
+    .bribe-option {
+      display: flex;
+      flex-wrap: wrap;
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      color: white;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .bribe-option:hover {
+      background: rgba(243,156,18,0.15);
+      border-color: rgba(243,156,18,0.4);
+    }
+    .bribe-opt-label {
+      font-weight: 600;
+      font-size: 13px;
+      flex: 1;
+    }
+    .bribe-opt-cost {
+      color: #f1c40f;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .bribe-opt-desc {
+      width: 100%;
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+    /* Toast notifications */
+    #toast-container {
+      position: fixed;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      animation: toastIn 0.3s ease-out forwards;
+      white-space: nowrap;
+    }
+    .toast.success {
+      background: rgba(46, 204, 113, 0.9);
+      border: 1px solid #27ae60;
+    }
+    .toast.warning {
+      background: rgba(243, 156, 18, 0.9);
+      border: 1px solid #e67e22;
+    }
+    .toast.error {
+      background: rgba(231, 76, 60, 0.9);
+      border: 1px solid #c0392b;
+    }
+    .toast.fade-out {
+      animation: toastOut 0.4s ease-in forwards;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+    /* Crosshair for pointer lock */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 4px;
+      background: rgba(255,255,255,0.6);
+      border-radius: 50%;
+      z-index: 50;
+      pointer-events: none;
+      display: none;
+    }
+    /* Shared avatar style */
+    #profile-pfp,
+    .wp-header img {
+      border-radius: 50%;
+      object-fit: cover;
+      background: #333;
+      flex-shrink: 0;
+    }
+    /* Shared text truncation */
+    #profile-name,
+    .wp-display-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Profile Button */
+    #profile-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 210;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 24px;
+      padding: 5px 14px 5px 5px;
+      cursor: pointer;
+      color: white;
+      font-size: 13px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #profile-btn:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.25);
+    }
+    #profile-pfp { width: 28px; height: 28px; }
+    #profile-name { max-width: 120px; }
+    /* Wallet Panel */
+    #wallet-panel {
+      position: fixed;
+      top: 58px;
+      right: 20px;
+      z-index: 210;
+      display: none;
+      width: 360px;
+      background: rgba(10,10,20,0.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      backdrop-filter: blur(16px);
+      color: white;
+      overflow: hidden;
+    }
+    .wp-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .wp-header img { width: 44px; height: 44px; }
+    .wp-header-info { min-width: 0; }
+    .wp-display-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .wp-username {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+    }
+    .wp-tabs {
+      display: flex;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .wp-tab {
+      flex: 1;
+      padding: 10px 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .wp-tab:hover { color: rgba(255,255,255,0.7); }
+    .wp-tab.active {
+      color: #f1c40f;
+      border-bottom-color: #f1c40f;
+    }
+    .wp-tab-content {
+      display: none;
+      padding: 12px 16px;
+    }
+    .wp-tab-content.active { display: block; }
+    .wp-section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 6px;
+    }
+    .wp-wallet-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wp-address {
+      font-family: monospace;
+      font-size: 13px;
+      color: #f1c40f;
+      flex: 1;
+    }
+    .wp-copy-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .wp-copy-btn:hover {
+      color: white;
+      background: rgba(255,255,255,0.1);
+    }
+    .wp-balance-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .wp-balance-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1c40f;
+    }
+    .wp-balance-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+    .wp-tx-list {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .wp-tx-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .wp-tx-item:last-child { border-bottom: none; }
+    .wp-tx-info { flex: 1; min-width: 0; }
+    .wp-tx-label {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wp-tx-date {
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+    }
+    .wp-tx-right { text-align: right; flex-shrink: 0; }
+    .wp-tx-amount {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1c40f;
+    }
+    .wp-tx-status {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .wp-tx-status.pending {
+      background: rgba(241,196,15,0.15);
+      color: #f1c40f;
+    }
+    .wp-tx-status.honored {
+      background: rgba(46,204,113,0.15);
+      color: #2ecc71;
+    }
+    .wp-tx-status.rejected {
+      background: rgba(231,76,60,0.15);
+      color: #e74c3c;
+    }
+    .wp-tx-hash {
+      font-size: 10px;
+      color: rgba(155,89,182,0.7);
+      text-decoration: none;
+    }
+    .wp-tx-hash:hover { color: #9b59b6; }
+    .wp-tx-empty {
+      text-align: center;
+      color: rgba(255,255,255,0.3);
+      font-size: 13px;
+      padding: 24px 0;
+    }
+    .wp-fund-address {
+      font-family: monospace;
+      font-size: 12px;
+      color: #f1c40f;
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 6px;
+      word-break: break-all;
+      cursor: pointer;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .wp-fund-hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .wp-actions {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .wp-btn {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.15s;
+    }
+    .wp-btn:hover { opacity: 0.9; }
+    .wp-btn:active { transform: scale(0.98); }
+    .wp-btn.export {
+      background: rgba(52,152,219,0.15);
+      color: #3498db;
+      border: 1px solid rgba(52,152,219,0.25);
+    }
+    .wp-btn.logout {
+      background: rgba(231,76,60,0.15);
+      color: #e74c3c;
+      border: 1px solid rgba(231,76,60,0.25);
+    }
+    .wp-guest-msg {
+      padding: 24px 16px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .wp-network {
+      padding: 6px 16px;
+      text-align: center;
+      font-size: 10px;
+      color: rgba(155,89,182,0.7);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    /* Login onboarding */
+    .login-onboarding {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+    }
+    .login-onboarding h3 {
+      color: rgba(255,255,255,0.6);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .onboard-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .onboard-icon,
+    .help-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .onboard-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-size: 14px;
+      background: rgba(155,89,182,0.15);
+      border: 1px solid rgba(155,89,182,0.25);
+    }
+    .onboard-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.5;
+    }
+    .onboard-text strong {
+      color: rgba(255,255,255,0.85);
+    }
+    /* Help button */
+    #help-btn {
+      position: fixed;
+      bottom: 70px;
+      right: 20px;
+      z-index: 210;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(155,89,182,0.4);
+      background: rgba(155,89,182,0.2);
+      color: rgba(255,255,255,0.7);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    #help-btn:hover {
+      background: rgba(155,89,182,0.35);
+      color: white;
+      border-color: rgba(155,89,182,0.7);
+    }
+    /* Help overlay */
+    #help-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 800;
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .help-content {
+      max-width: 420px;
+      width: 90vw;
+      cursor: default;
+    }
+    .help-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .help-header h2 {
+      color: #fff;
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+    .help-header p {
+      color: rgba(255,255,255,0.4);
+      font-size: 13px;
+    }
+    .help-section {
+      margin-bottom: 20px;
+    }
+    .help-section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: rgba(155,89,182,0.8);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .help-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .help-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .help-icon.purple { background: rgba(155,89,182,0.2); border: 1px solid rgba(155,89,182,0.3); }
+    .help-icon.gold { background: rgba(241,196,15,0.15); border: 1px solid rgba(241,196,15,0.25); }
+    .help-icon.green { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.25); }
+    .help-icon.red { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.25); }
+    .help-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .help-desc {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      line-height: 1.4;
+    }
+    .help-dismiss {
+      text-align: center;
+      color: rgba(255,255,255,0.25);
+      font-size: 11px;
+      margin-top: 16px;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="login-screen">
+    <!-- Phase 1: Loading splash (visible by default) -->
+    <div id="login-splash" class="login-container">
+      <h1>Aether</h1>
+      <p class="login-subtitle">The The Aetherist awaits...</p>
+      <div class="login-loader">
+        <div class="loader-spinner"></div>
+        <p class="login-status">Loading...</p>
+      </div>
+    </div>
+    <!-- Phase 2: Login buttons (hidden until ready) -->
+    <div id="login-buttons-container" class="login-container" style="display:none">
+      <h1>Aether</h1>
+      <p class="login-subtitle">The The Aetherist awaits...</p>
+      <div class="login-buttons">
+        <button id="btn-continue" class="login-btn continue" style="display:none">Continue</button>
+        <button id="btn-twitter-login" class="login-btn twitter" disabled>
+          <span class="btn-spinner"></span> Loading Twitter...
+        </button>
+        <button id="btn-guest" class="login-btn guest">Play as Guest</button>
+      </div>
+      <p id="login-status" class="login-status"></p>
+      <div class="login-onboarding">
+        <h3>How it works</h3>
+        <div class="onboard-item">
+          <div class="onboard-icon">&#x1F52E;</div>
+          <div class="onboard-text"><strong>An AI builds the game live.</strong> The The Aetherist spawns arenas, obstacles, and mini-games in real-time.</div>
+        </div>
+        <div class="onboard-item">
+          <div class="onboard-icon">&#x1F3AE;</div>
+          <div class="onboard-text"><strong>Wait for games to start</strong> or chat <strong>@agent</strong> to ask for things &mdash; "spawn a giant spider", "make lava floor"</div>
+        </div>
+        <div class="onboard-item">
+          <div class="onboard-icon">&#x1F4B0;</div>
+          <div class="onboard-text"><strong>Bribe the Aetherist</strong> with tokens to get special favors, spells, or chaos on demand.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="arena-lobby" style="display:none">
+    <div class="lobby-container">
+      <h1>Choose an Arena</h1>
+      <p class="lobby-subtitle">Pick your battleground</p>
+      <div id="arena-list" class="arena-list"></div>
+      <p id="arena-status" class="login-status"></p>
+    </div>
+  </div>
+  <div id="ui" style="display:none">
+    <h1>🎭 Aether</h1>
+    <div id="stats">
+      <div>Entities: <span id="entity-count">0</span></div>
+      <div>Players: <span id="player-count">0</span></div>
+      <div>Physics: <span id="physics-info">-</span></div>
+    </div>
+    <div id="entities"></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="chat-panel" style="display:none">
+    <div id="chat-messages"></div>
+    <input id="chat-input" placeholder="Chat... (@agent to tag)" maxlength="200" />
+  </div>
+  <div id="controls" style="display:none">
+    <div class="controls-row">
+      <div class="control-group">
+        <div class="keys-wasd">
+          <div><kbd>W</kbd></div>
+          <div><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+        </div>
+        <span class="control-label">Move</span>
+      </div>
+      <div class="control-group">
+        <kbd class="key-wide">Space</kbd>
+        <span class="control-label">Jump</span>
+      </div>
+      <div class="control-group">
+        <kbd>&#x21E7;</kbd>
+        <span class="control-label">Sprint</span>
+      </div>
+      <div class="control-group">
+        <kbd>L</kbd>
+        <span class="control-label">Board</span>
+      </div>
+      <div class="control-group">
+        <kbd class="key-wide">Enter</kbd>
+        <span class="control-label">Chat</span>
+      </div>
+      <div class="control-group">
+        <kbd>&#x1F5B1;</kbd>
+        <span class="control-label">Look</span>
+      </div>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <div id="announcements"></div>
+  <div id="game-status" class="lobby">
+    <div id="game-phase">LOBBY</div>
+    <div id="game-type"></div>
+    <div id="game-timer"></div>
+  </div>
+  <div id="score-overlay" style="display:none"></div>
+  <div id="curse-timer" style="display:none"></div>
+  <div id="checkpoint-display" style="display:none"></div>
+  <div id="profile-btn">
+    <img id="profile-pfp" src="" alt="">
+    <span id="profile-name"></span>
+  </div>
+  <div id="wallet-panel">
+    <div class="wp-header">
+      <img id="wp-pfp" src="" alt="">
+      <div class="wp-header-info">
+        <div id="wp-display-name" class="wp-display-name"></div>
+        <div id="wp-username" class="wp-username"></div>
+      </div>
+    </div>
+    <div id="wp-guest-msg" class="wp-guest-msg" style="display:none">
+      Login with Twitter to unlock your wallet
+    </div>
+    <div id="wp-tabs-container" style="display:none">
+      <div class="wp-tabs">
+        <button class="wp-tab active" data-tab="overview">Overview</button>
+        <button class="wp-tab" data-tab="history">History</button>
+        <button class="wp-tab" data-tab="fund">Fund</button>
+      </div>
+      <div id="wp-tab-overview" class="wp-tab-content active">
+        <div class="wp-section-label">Wallet</div>
+        <div class="wp-wallet-row">
+          <span id="wp-address" class="wp-address">Loading...</span>
+          <button id="wp-copy" class="wp-copy-btn" title="Copy address">&#x2398;</button>
+          <button id="wp-explorer" class="wp-copy-btn" title="View on explorer">&#x2197;</button>
+        </div>
+        <div class="wp-balance-row">
+          <span id="wp-balance" class="wp-balance-value">...</span>
+          <span class="wp-balance-label">0G</span>
+        </div>
+        <div class="wp-network">0G</div>
+      </div>
+      <div id="wp-tab-history" class="wp-tab-content">
+        <div class="wp-tx-list" id="wp-tx-list">
+          <div class="wp-tx-empty">Loading...</div>
+        </div>
+      </div>
+      <div id="wp-tab-fund" class="wp-tab-content">
+        <div class="wp-section-label">Fund your wallet</div>
+        <div id="wp-fund-address" class="wp-fund-address"></div>
+        <div id="wp-fund-hint" class="wp-fund-hint"></div>
+      </div>
+    </div>
+    <div class="wp-actions">
+      <button id="wp-export" class="wp-btn export" style="display:none">Export Private Key</button>
+      <button id="wp-logout" class="wp-btn logout">Logout</button>
+    </div>
+  </div>
+  <div id="leaderboard-panel">
+    <h3>Leaderboard</h3>
+    <div id="leaderboard-entries"></div>
+  </div>
+  <div id="bribe-panel" style="display:none">
+    <button id="btn-bribe" class="bribe-btn">Bribe the Aetherist</button>
+    <div id="bribe-balance" class="bribe-balance"></div>
+  </div>
+  <div id="bribe-modal" style="display:none">
+    <div class="bribe-modal-content">
+      <div class="bribe-modal-header">
+        <h3>Bribe the Aetherist</h3>
+        <button id="bribe-close" class="bribe-modal-close">&times;</button>
+      </div>
+      <div id="bribe-options-list"></div>
+    </div>
+  </div>
+  <div id="debug-panel" style="display:none">
+    <div style="font-weight:bold; margin-bottom:6px;">Debug</div>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px;">
+      <input type="checkbox" id="toggle-ai"> AI Players
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; margin-top:4px;">
+      <input type="checkbox" id="toggle-agent"> Agent Loop
+    </label>
+    <div id="debug-info" style="font-size:10px; opacity:0.7; margin-top:6px;"></div>
+  </div>
+  <div id="spectator-overlay">
+    <div id="agent-status">
+      <div>Phase: <span id="agent-phase">WELCOME</span></div>
+    </div>
+    <div id="drama-meter">
+      <h4>DRAMA METER</h4>
+      <div class="drama-bar"><div id="drama-fill"></div></div>
+      <div class="drama-label"><span>Calm</span><span id="drama-value">0</span><span>CHAOS</span></div>
+    </div>
+    <div id="kill-feed"></div>
+  </div>
+  <button id="help-btn" title="How to play">? How to Play</button>
+  <div id="help-overlay" style="display:none">
+    <div class="help-content">
+      <div class="help-header">
+        <h2>Aether</h2>
+        <p>An AI agent runs the show. You just try to survive.</p>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">The Concept</div>
+        <div class="help-row">
+          <div class="help-icon purple">&#x1F52E;</div>
+          <div>
+            <div class="help-label">The The Aetherist (AI) builds games live</div>
+            <div class="help-desc">It spawns arenas, starts mini-games, casts spells, and reacts to what players do.</div>
+          </div>
+        </div>
+        <div class="help-row">
+          <div class="help-icon gold">&#x1F399;</div>
+          <div>
+            <div class="help-label">Talk to it in chat with @agent</div>
+            <div class="help-desc">Ask for anything: "spawn a giant spider", "make it rain fire", "start a race"</div>
+          </div>
+        </div>
+        <div class="help-row">
+          <div class="help-icon gold">&#x1F4B0;</div>
+          <div>
+            <div class="help-label">Bribe the Aetherist</div>
+            <div class="help-desc">Use the Bribe button to pay tokens for special favors, buffs, or total chaos.</div>
+          </div>
+        </div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">Gameplay</div>
+        <div class="help-row">
+          <div class="help-icon green">&#x23F3;</div>
+          <div>
+            <div class="help-label">Games start automatically</div>
+            <div class="help-desc">Wait in the lobby &mdash; a new game starts every ~45 seconds or when the agent decides.</div>
+          </div>
+        </div>
+        <div class="help-row">
+          <div class="help-icon red">&#x1F480;</div>
+          <div>
+            <div class="help-label">Survive, race, collect, or compete</div>
+            <div class="help-desc">6 game types: survival, races, collecting, king of the hill, hot potato, and reach-the-goal.</div>
+          </div>
+        </div>
+      </div>
+      <div class="help-section">
+        <div class="help-section-title">Controls</div>
+        <div class="help-row">
+          <div class="help-icon purple">&#x2328;</div>
+          <div>
+            <div class="help-label">WASD move &middot; Space jump &middot; Shift sprint</div>
+            <div class="help-desc">Enter to chat &middot; L for leaderboard &middot; Mouse to look around</div>
+          </div>
+        </div>
+      </div>
+      <div class="help-dismiss">Click anywhere to close &middot; Press ? anytime to reopen</div>
+    </div>
+  </div>
+  <div id="rotate-overlay">
+    <div class="rotate-icon">📱</div>
+    <p>Rotate to landscape</p>
+  </div>
+  <div id="privy-root" style="display:none"></div>
+  <div id="game"></div>
+  <script>
+    // Must run BEFORE ES modules load so Privy SDK sees patched fetch.
+    // Privy fires analytics_events via fetch — the endpoint lacks CORS headers
+    // for custom domains. The retry loop blocks transactions.
+    (function() {
+      var _fetch = window.fetch;
+      window.fetch = function() {
+        var url = typeof arguments[0] === 'string' ? arguments[0] : (arguments[0] && arguments[0].url);
+        if (url && url.indexOf('/analytics_events') !== -1) {
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+        return _fetch.apply(this, arguments);
+      };
+    })();
+  </script>
+  <script type="module" src="/src/client/main.js"></script>
+</body>
+</html>

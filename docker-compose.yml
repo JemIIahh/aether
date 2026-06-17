@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aether
+      POSTGRES_USER: aether
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  game:
+    build:
+      context: .
+      args:
+        VITE_PRIVY_APP_ID: ${VITE_PRIVY_APP_ID}
+        VITE_PRIVY_CLIENT_ID: ${VITE_PRIVY_CLIENT_ID}
+        VITE_TREASURY_ADDRESS: ${VITE_TREASURY_ADDRESS}
+        VITE_OG_CHAIN_ID: ${VITE_OG_CHAIN_ID:-16602}
+        VITE_OG_RPC_URL: ${VITE_OG_RPC_URL}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://aether:${DB_PASSWORD:-changeme}@db:5432/aether
+      - JWT_SECRET=${JWT_SECRET}
+      - PRIVY_APP_ID=${PRIVY_APP_ID}
+      - PRIVY_APP_SECRET=${PRIVY_APP_SECRET}
+      - AI_PLAYERS=${AI_PLAYERS:-true}
+      - TREASURY_ADDRESS=${TREASURY_ADDRESS}
+      - OG_CHAIN_ID=${OG_CHAIN_ID:-16602}
+      - OG_RPC_URL=${OG_RPC_URL:-https://evmrpc-testnet.0g.ai}
+      - OG_COMPUTE_BROKER_URL=${OG_COMPUTE_BROKER_URL:-https://broker.testnet.0g.ai}
+    volumes:
+      - gamedata:/app/data
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - webroot:/var/www/certbot
+    depends_on:
+      - game
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 12h & wait $${!}; certbot renew --webroot -w /var/www/certbot; done'"
+
+volumes:
+  pgdata:
+  gamedata:
+  certbot-etc:
+  certbot-var:
+  webroot:

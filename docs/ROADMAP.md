@@ -1,0 +1,356 @@
+# Development Roadmap
+
+## Overview
+
+2-week sprint to hackathon demo. AI "The Aetherist" builds a 3D multiplayer game in real-time.
+
+**Stack**: Three.js + Colyseus + Aetherist runtime (Agent Framework)
+**Production**: https://aether.example
+
+---
+
+## Phase 1: Foundation (Days 1-2) - COMPLETE
+
+*Completed Feb 3-4, 2026*
+
+- [x] Research & feasibility analysis (competitive landscape, tech options)
+- [x] Agent stack selection: Aetherist runtime chosen over Claude Agent SDK
+- [x] Three.js + Colyseus game server on port 3000
+- [x] Express HTTP API for agent control (13 endpoints)
+- [x] Colyseus WebSocket room for real-time multiplayer
+- [x] World state management (entities, players, physics, challenges)
+- [x] 5 entity types: platform, ramp, collectible, obstacle, trigger
+- [x] Aetherist runtime game-world skill with 13 tools
+- [x] The Aetherist persona installed (SOUL.md)
+
+---
+
+## Phase 2: Core Loop (Days 2-3) - COMPLETE
+
+*Completed Feb 4, 2026*
+
+- [x] Three.js browser client with WASD + jump controls
+- [x] AABB collision detection (platforms, collectibles, obstacles, triggers)
+- [x] Vite dev server for hot-reload development
+- [x] Remote player rendering (colored capsules + name labels)
+- [x] WebSocket reconnection with polling backup
+- [x] Announcements (agent -> players, CSS-animated overlays)
+- [x] Game state machine: lobby -> countdown -> playing -> ended
+- [x] 3 mini-games: ReachGoal, CollectGame, Survival
+- [x] Mini-game framework with shared base class
+
+---
+
+## Phase 3: Agent Chat, Multiplayer & Mechanics (Days 3-4) - COMPLETE
+
+*Completed Feb 4, 2026*
+
+- [x] Chat system with rate limiting, @agent mentions
+- [x] Mouse look camera with pointer lock and orbit zoom
+- [x] Camera-relative WASD movement
+- [x] Player ready system (R key toggle)
+- [x] Moving/kinematic platforms with waypoints
+- [x] Score & leaderboard (top 10, wins tracking)
+- [x] Unified /api/agent/context endpoint
+- [x] Trick system (time/score/death/interval triggers)
+- [x] Game-specific tricks for each mini-game type
+
+---
+
+## Phase 3.5: Deployment & Persistence (Day 5) - COMPLETE
+
+*Completed Feb 4, 2026*
+
+- [x] Production deployment (Docker + nginx + SSL)
+- [x] PostgreSQL persistence with graceful fallback
+- [x] Database tables: users, leaderboard, game_history
+- [x] README.md for hackathon submission
+
+---
+
+## Phase 4: AI Players, Streaming & Lifecycle (Days 5-7) - COMPLETE
+
+*Completed Feb 5, 2026*
+
+### AI Players
+- [x] 3 personality types: Explorer, Chaos Bot, Tryhard
+- [x] Goal-seeking movement with platform collision
+- [x] AI player avatars visible in world
+- [x] Runtime toggle (API + debug panel)
+
+### Streaming
+- [x] SSE event feed for OBS overlays
+- [x] Spectator mode with free camera + player follow (1-9 keys)
+- [x] Drama meter + agent phase indicator overlays
+
+### Game Lifecycle
+- [x] Phase guards on 6 endpoints (prevent actions during active games)
+- [x] 8-second cooldown between games (now 15s in v0.11.0)
+- [x] Agent auto-pause when 0 human players
+- [x] Building phase in state machine
+
+### Production Fixes
+- [x] Leaderboard recording on game end
+- [x] Drama score initialization fix
+- [x] Death loop prevention (2s cooldown + invulnerability)
+- [x] Agent interval tuning (15-45s)
+- [x] Agent kill switch (pause/resume endpoints)
+
+### Auth
+- [x] Privy authentication (Twitter OAuth + guest mode)
+- [x] JWT token exchange
+
+---
+
+## Phase 5: VFX & Game Feel - COMPLETE
+
+*Completed Feb 5, 2026*
+
+### Camera Effects
+- [x] Camera shake on death, spell cast, countdown
+- [x] Screen flash on win/lose
+
+### Enhanced Particles
+- [x] Death: larger burst with red/orange, 50 particles
+- [x] Collection: golden sparkle trail
+- [x] Spell activation: colored vortex
+- [ ] Game start: confetti burst
+- [x] Lava contact: fire particles
+
+### Screen Effects
+- [x] Speed boost: green vignette overlay
+- [x] Low gravity: blue vignette overlay
+- [x] Game win: golden flash
+- [x] Game lose: red flash
+- [x] Invert controls: purple vignette overlay
+
+### Sound
+- [x] Countdown beeps (3, 2, 1, GO!)
+- [x] Game win fanfare (C-E-G-C arpeggio)
+- [x] Spell cast whoosh (filtered sawtooth sweep)
+- [ ] Ambient hum with time-based intensity
+
+---
+
+## Phase 6: World Dynamics - COMPLETE
+
+*Completed Feb 5, 2026*
+
+### Floor System
+- [x] Floor types: none (abyss), solid, lava
+- [x] Lava floor rendering (animated red/orange plane with glow)
+- [x] Server `POST /api/world/floor` endpoint
+- [x] Agent `set_floor` tool
+- [x] Arena templates define floor types
+
+### Dynamic World
+- [x] Agent can toggle ground on/off mid-game
+- [x] Platforms as the only safe ground in abyss mode
+- [x] Lava = death with fire particles
+
+---
+
+## Phase 7: Bribe System Polish - COMPLETE
+
+*Completed Feb 5, 2026*
+
+- [x] Predefined bribe options with token costs (6 options, 30-200 tokens)
+- [x] Auto-execute simple bribes server-side (obstacles, lava, spell)
+- [x] Queue complex bribes for agent (move goal, extra time, custom)
+- [x] Bribe UI with dropdown/modal and confirmation
+- [ ] Bribe history tracking per player
+
+---
+
+## Phase 8: Game Lifecycle & Variety - COMPLETE
+
+*Completed Feb 5, 2026 (v0.11.0)*
+
+### Bug Fixes
+- [x] Invisible floor bug — `floorType: 'none'` now lets players fall during gameplay (lobby/building keeps safety floor)
+- [x] Lava invulnerability — invulnerable players no longer die to lava
+
+### Game Flow
+- [x] 15s cooldown between games (was 8s)
+- [x] Agent cooldown guard — skips invocation during cooldown
+- [x] Fall Guys-style countdown — teleport to start, free movement during 3s countdown
+- [x] "GET READY!" announcement before game type
+- [x] Game-end display: YOU WIN / GAME OVER / TIME UP / DRAW on timer
+- [x] "Returning to lobby..." announcement 3s after game ends
+
+### Player Welcome
+- [x] Agent detects player joins (tracks `player_join` events)
+- [x] `pendingWelcomes` system — agent greets new players by name
+- [x] Visual join announcement: "[name] has entered the arena!"
+- [x] Drama boost for joins (+10) and pending welcomes (+15)
+
+### Mid-Game Spectator
+- [x] Players joining during active games become spectators
+- [x] Banner: "Game in progress — watching until next round..."
+- [x] Auto-activated when lobby phase returns
+- [x] Spectators skip game physics and initialization
+
+### Game Variety
+- [x] Randomized time limits: reach 40-75s, collect 30-60s, survival 60-120s
+- [x] Randomized goal positions, collectible counts, hazard intervals
+- [x] Random obstacles per game: sweepers, moving walls, pendulums, falling blocks
+- [x] Variety enforcement: `suggestedGameTypes` excludes last played type
+
+---
+
+## Phase 8.5: Auth & DB Testing - IN PROGRESS
+
+- [x] Fix production DB password persistence
+- [ ] Test Twitter OAuth login on production
+- [ ] Test guest login on production
+- [ ] Verify users table populated
+- [ ] Verify leaderboard persists across restarts
+
+---
+
+## Phase 9: Agent Engagement Polish - IN PROGRESS
+
+- [x] Fix bribe honor system (honor_bribe tool + endpoint)
+- [x] Enrich agent context (more chat, bribe history, pending bribes with ACT ON THESE)
+- [x] Core concept docs (MANIFESTO.md + CONCEPT.md update)
+
+---
+
+## Phase 10: External Integration - IN PROGRESS
+
+- [x] Event webhooks (register, fire events)
+- [x] Public game API (state, leaderboard, events, stats)
+- [ ] OBS overlay guide
+
+---
+
+## Phase 11: Agent-as-Player - IN PROGRESS
+
+- [x] Player agent skill (game-player-skill.js)
+- [x] Agent player endpoints (join, move, state)
+- [x] Agent player documentation (AGENT-PLAYER-API.md)
+
+---
+
+## Phase 12: Mobile Support - IN PROGRESS
+
+- [x] Touch controls: virtual joystick (left thumb) + action buttons (right thumb)
+- [x] Responsive UI scaling for small screens
+- [x] Disable pointer lock on mobile, use touch-based camera
+- [ ] Test on iOS Safari, Android Chrome
+
+---
+
+## Phase 13: Visual Polish - COMPLETE
+
+*Completed Feb 9, 2026 (v0.28.0)*
+
+### Toon Shading (v0.24.0)
+- [x] MeshToonMaterial with gradient maps (2/3/4 step)
+- [x] Cel-shaded outlines via OutlinePass
+- [x] Bloom pass for emissive glow
+- [x] Procedural textures (lava, conveyor arrows)
+- [x] Animated shaders (lava flow, hazard plane)
+
+### Scene Brightness (v0.28.0)
+- [x] Brighter ambient light (0x8090a0 at 0.8)
+- [x] Hemisphere light for natural sky/ground fill
+- [x] ACES filmic tone mapping (1.3 exposure)
+- [x] Lighter sky dome defaults (dark blue, not black)
+- [x] Ground self-illumination (0.08 emissive)
+- [x] Entity emissive bump (0.05 → 0.12)
+
+### Outline Visibility (v0.28.0)
+- [x] Dark gray edges (#1a1a1a) instead of invisible black
+- [x] Slight edge glow (0.2) for visibility on dark backgrounds
+- [x] Faster outline update (500ms → 200ms)
+
+### Player Rotation (v0.28.0)
+- [x] Local player capsule rotates to face movement direction
+- [x] Smooth shortest-path lerp (~66ms turn time)
+- [x] Remote players rotate based on position delta
+- [x] `shortAngleDist()` helper for angle wrapping
+
+---
+
+## Phase 14: Demo Prep & Submission
+
+- [ ] Record demo video / GIF
+- [ ] Polish landing page
+- [ ] Submit to Moltiverse
+
+---
+
+## Future: Blockchain & Credits
+
+### Persistent Inventory (Design)
+- [ ] Schema: userId, itemType, itemId, quantity, acquiredAt
+- [ ] Cosmetic items (colors, trails, titles)
+- [ ] Items earned through gameplay
+
+### Credits System (Architecture)
+- [ ] Privy embedded wallets (0G EVM)
+- [ ] USDC purchase flow → backend credit balance
+- [ ] In-game spending deducts from balance
+- [ ] On-chain transaction verification
+
+---
+
+## Milestones
+
+| Day | Milestone | Status |
+|-----|-----------|--------|
+| 2 | Agent -> World bridge | DONE |
+| 3 | Core game loop | DONE |
+| 4 | Chat + multiplayer + tricks | DONE |
+| 5 | Deployment + PostgreSQL | DONE |
+| 5-7 | AI players + streaming + lifecycle | DONE |
+| 7-8 | VFX & game feel | DONE |
+| 8-9 | World dynamics (abyss/lava) | DONE |
+| 9-10 | Bribe system polish | DONE |
+| 10-11 | Auth & DB testing | DONE |
+| 11 | Agent engagement + docs | DONE |
+| 11-12 | External integration + agent-as-player | DONE |
+| 12 | Game lifecycle & variety | DONE |
+| 12-13 | Mobile support | IN PROGRESS |
+| 13 | Visual polish (brightness, outlines, rotation) | DONE |
+| 13-14 | Demo prep + submission | TODO |
+
+---
+
+## Architecture
+
+```
+Browser Client (Three.js + Colyseus)
+    |
+    | WebSocket (real-time sync)
+    |
+Game Server (Express + Colyseus, port 3000)
+    |           |            |            |
+    | HTTP API  | PostgreSQL | SSE Stream | Webhooks
+    |           |            |            |
+Aetherist runtime Agent (The Aetherist)        External Agents
+    |                                  (Agent-as-Player API)
+    | AgentLoop.js (drama-based scheduling)
+    |
+Claude (Anthropic) via Aetherist runtime Gateway
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| src/server/index.js | Express API (50+ endpoints) + Colyseus server |
+| src/server/WorldState.js | Entities, players, physics, chat, leaderboard, spells |
+| src/server/GameRoom.js | Colyseus room: player sync, chat, ready system |
+| src/server/MiniGame.js | Mini-game base class with trick system |
+| src/server/AgentLoop.js | Drama score + autonomous agent scheduling |
+| src/server/AIPlayer.js | 3 AI bot personality types |
+| src/server/ArenaTemplates.js | 5 pre-built arena layouts |
+| src/server/auth.js | Privy JWT verification |
+| src/server/db.js | PostgreSQL persistence with graceful fallback |
+| src/server/games/ | ReachGoal, CollectGame, Survival implementations |
+| src/client/main.js | Three.js client: rendering, input, camera, mobile touch controls |
+| index.html | Game HTML with all UI panels |
+| config/aetherist/game-world-skill.js | Agent skill (27 tools) + SOUL.md personality |
+| config/aetherist/game-player-skill.js | External agent player skill (8 tools) |
