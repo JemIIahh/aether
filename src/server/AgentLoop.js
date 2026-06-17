@@ -31,7 +31,7 @@ export class AgentLoop {
     this.broadcast = broadcastFn;
     this.chain = config.chain || null;
 
-    // Agent bridge for Aetherist runtime communication
+    // Agent bridge for 0G Compute communication
     this.bridge = new AgentBridge(
       config.gatewayUrl || process.env.AGENT_GATEWAY_URL || 'http://localhost:18789',
       config.sessionId || process.env.AGENT_SESSION_ID || null

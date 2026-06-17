@@ -1,5 +1,5 @@
 /**
- * AgentBridge - Communicates with Aetherist runtime Gateway
+ * AgentBridge - Communicates with 0G Compute broker
  *
  * Uses the `aetherist agent` CLI to send messages to the The Aetherist.
  * The agent responds using game-world skill tools (HTTP calls back to game server).

@@ -25,11 +25,11 @@ Game Server (Express + Colyseus, port 3000)
     |           |            |            |
     | HTTP API  | PostgreSQL | SSE Stream | Webhooks
     |           |            |            |
-Aetherist runtime Agent (The Aetherist)        External Agents
+Aether Game Master (The Aetherist)        External Agents
     |                                  (Agent-as-Player API)
     | AgentLoop.js (drama-based scheduling)
     |
-Claude (Anthropic) via Aetherist runtime Gateway
+0G Compute Network (broker SDK + signed headers)
 ```
 
 ### Components
@@ -49,9 +49,9 @@ Claude (Anthropic) via Aetherist runtime Gateway
 - Particle systems (death, collection, spells, lava)
 - Screen effects (shake, flash, vignette overlays)
 
-**Agent System** (Aetherist runtime)
+**Agent System** (0G Compute)
 - AgentLoop.js: in-server drama-based autonomous scheduling (15-45s intervals)
-- AgentBridge.js: invokes Aetherist runtime CLI with context-rich prompts
+- AgentBridge.js: builds context-rich prompts for the agent runner
 - 27 agent tools via game-world-skill.js (spawn, modify, destroy, game lifecycle, spells, chat, bribes)
 - Session phases: welcome, warmup, gaming, intermission, escalation, finale
 - Drama score (0-100) drives intervention frequency
@@ -83,7 +83,7 @@ AgentLoop.js runs continuously:
 1. Calculate drama score (player activity, deaths, time since last action)
 2. Determine session phase (welcome/warmup/gaming/intermission/escalation/finale)
 3. Build context message (players, game state, chat, bribes, leaderboard)
-4. Invoke agent via Aetherist runtime CLI with phase-specific prompt
+4. Invoke agent via 0G Compute with phase-specific prompt
 5. Agent executes tools (HTTP calls back to game server)
 6. Wait interval (15-45s, shorter when drama is high)
 7. Repeat
@@ -207,7 +207,7 @@ Read-only endpoints for external consumers:
 |----------|--------|-----------|
 | Game Engine | Three.js | Full control over 3D rendering, physics, effects |
 | Multiplayer | Colyseus | Battle-tested WebSocket rooms with state sync |
-| Agent Framework | Aetherist runtime | CLI-based tool use, session management, model flexibility |
+| Agent Framework | 0G Compute (broker SDK) | CLI-based tool use, session management, model flexibility |
 | Agent Model | Claude (Anthropic) | Powerful reasoning for dynamic game mastering |
 | Persistence | PostgreSQL | Reliable, with graceful in-memory fallback |
 | Deployment | Docker + nginx | SSL termination, WebSocket proxy, reproducible builds |

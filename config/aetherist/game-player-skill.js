@@ -1,5 +1,5 @@
 /**
- * Game Player Skill for Aetherist runtime
+ * Game Player skill spec (used by Aether agent runners)
  *
  * Allows external AI agents to PLAY the Aether as a player.
  * Unlike game-world-skill.js (which controls the world as the The Aetherist),

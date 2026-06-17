@@ -6,7 +6,7 @@ This document outlines how to incrementally test core functionalities, validatin
 
 ## Phase 0: Environment Setup (Day 1)
 
-### Test 0.1: Aetherist runtime Gateway Running
+### Test 0.1: 0G Compute broker Running
 ```bash
 # Check if gateway is running
 curl http://127.0.0.1:18789/health
@@ -28,7 +28,7 @@ ls -la ~/.aetherist/workspace/skills/game-world/
 # Expected: SKILL.md, index.js
 ```
 
-**Checkpoint**: Aetherist runtime configured with The Aetherist agent and game-world skill.
+**Checkpoint**: 0G Compute configured with The Aetherist agent and game-world skill.
 
 ---
 
@@ -74,9 +74,9 @@ curl http://localhost:3000/api/world/state
 
 ---
 
-## Phase 2: Aetherist runtime → Game Server (Day 3)
+## Phase 2: 0G Compute → Game Server (Day 3)
 
-### Test 2.1: Skill Loads in Aetherist runtime
+### Test 2.1: Skill Loads in 0G Compute
 ```bash
 # Send test message to The Aetherist via Telegram or inject
 # Ask: "What tools do you have?"
@@ -108,7 +108,7 @@ curl http://localhost:3000/api/world/state
 # Expected: Agent calls modify_entity, platform size changes
 ```
 
-**Checkpoint**: Aetherist runtime agent can control game world via skills.
+**Checkpoint**: 0G Compute agent can control game world via skills.
 
 ---
 
@@ -275,7 +275,7 @@ curl http://localhost:3000/api/players
 
 ### Test 8.2: Agent Restart
 ```bash
-# Kill and restart Aetherist runtime gateway
+# Kill and restart 0G Compute gateway
 # Agent should resume with memory intact
 ```
 
@@ -292,7 +292,7 @@ curl http://localhost:3000/api/players
 ## Test Commands Cheatsheet
 
 ```bash
-# Check Aetherist runtime health
+# Check 0G Compute health
 curl http://127.0.0.1:18789/health
 
 # Check game server health
@@ -314,7 +314,7 @@ curl -X POST http://localhost:3000/api/physics/set \
 # Get players
 curl http://localhost:3000/api/players
 
-# View Aetherist runtime logs
+# View 0G Compute logs
 tail -f ~/.aetherist/logs/gateway.log
 ```
 

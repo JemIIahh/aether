@@ -1,5 +1,5 @@
 /**
- * Game World Skill for Aetherist runtime
+ * Game World Skill for 0G Compute
  *
  * Provides tools for AI agents to control the 3D game world.
  * Communicates with the game server via HTTP API.
@@ -536,7 +536,7 @@ async function destroy_prefab({ groupId }) {
   return gameRequest('/api/world/destroy-group', 'POST', { groupId });
 }
 
-// Export tools for Aetherist runtime
+// Export tools for 0G Compute
 export {
   // World management
   spawn_entity,

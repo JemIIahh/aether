@@ -4,7 +4,7 @@
 
 2-week sprint to hackathon demo. AI "The Aetherist" builds a 3D multiplayer game in real-time.
 
-**Stack**: Three.js + Colyseus + Aetherist runtime (Agent Framework)
+**Stack**: Three.js + Colyseus + 0G Compute (Agent Framework)
 **Production**: https://aether.example
 
 ---
@@ -14,13 +14,13 @@
 *Completed Feb 3-4, 2026*
 
 - [x] Research & feasibility analysis (competitive landscape, tech options)
-- [x] Agent stack selection: Aetherist runtime chosen over Claude Agent SDK
+- [x] Agent stack selection: 0G Compute chosen over Claude Agent SDK
 - [x] Three.js + Colyseus game server on port 3000
 - [x] Express HTTP API for agent control (13 endpoints)
 - [x] Colyseus WebSocket room for real-time multiplayer
 - [x] World state management (entities, players, physics, challenges)
 - [x] 5 entity types: platform, ramp, collectible, obstacle, trigger
-- [x] Aetherist runtime game-world skill with 13 tools
+- [x] 0G Compute game-world skill with 13 tools
 - [x] The Aetherist persona installed (SOUL.md)
 
 ---
@@ -329,11 +329,11 @@ Game Server (Express + Colyseus, port 3000)
     |           |            |            |
     | HTTP API  | PostgreSQL | SSE Stream | Webhooks
     |           |            |            |
-Aetherist runtime Agent (The Aetherist)        External Agents
+Aether Game Master (The Aetherist)        External Agents
     |                                  (Agent-as-Player API)
     | AgentLoop.js (drama-based scheduling)
     |
-Claude (Anthropic) via Aetherist runtime Gateway
+Claude (Anthropic) via 0G Compute broker
 ```
 
 ### Key Files

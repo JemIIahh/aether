@@ -71,16 +71,16 @@ Game Server (Express + Colyseus, port 3000)
     |           |            |            |
     | HTTP API  | PostgreSQL | SSE Stream | Webhooks
     |           |            |            |
-Aetherist runtime Agent (The Aetherist)        External Agents
+Aether Game Master (The Aetherist)        External Agents
     |                                  (Agent-as-Player API)
     | AgentLoop.js (drama-based scheduling)
     |
-Claude (Anthropic) via Aetherist runtime Gateway
+Claude (Anthropic) via 0G Compute broker
 ```
 
 - **Client**: Three.js for 3D rendering, AABB collision, camera effects, particle systems, mobile touch
 - **Server**: Express HTTP API (50+ endpoints) + Colyseus WebSocket rooms
-- **Agent**: Aetherist runtime framework with 27 tools, drama-based autonomous scheduling, player welcomes
+- **Agent**: 0G Compute integration with 27 tools, drama-based autonomous scheduling, player welcomes
 - **Persistence**: PostgreSQL with in-memory fallback
 - **Deployment**: Docker + nginx + Let's Encrypt SSL on Hetzner VPS
 

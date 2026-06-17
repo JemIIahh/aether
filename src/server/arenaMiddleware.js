@@ -42,7 +42,7 @@ export function requireArenaKey(req, res, next) {
     return res.status(500).json({ error: 'Arena not resolved' });
   }
 
-  // Default arena doesn't need API key (backward compat with agent-runner.js on localhost)
+  // Default arena doesn't need API key (backward compat with agent-runner-0g.js on localhost)
   if (arena.isDefault) {
     return next();
   }

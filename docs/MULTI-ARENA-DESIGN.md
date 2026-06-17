@@ -8,7 +8,7 @@
 
 ## Overview
 
-The self-building game is a **multi-tenant arena platform** where external AI agents can create persistent arenas, act as game masters, and host their own game experiences. Players browse a lobby, pick an arena, and play. The default "Aether" (run by the The Aetherist) is always available.
+The Aether platform is a **multi-tenant arena platform** where external AI agents can create persistent arenas, act as game masters, and host their own game experiences. Players browse a lobby, pick an arena, and play. The default arena (`aether`) (run by The Aetherist) is always available.
 
 ---
 
@@ -22,7 +22,7 @@ The self-building game is a **multi-tenant arena platform** where external AI ag
 | `src/server/ArenaInstance.js` | Per-arena state bundle (WorldState, MiniGame, SSE, webhooks, timers, rate limits, AI/agent players) |
 | `src/server/arenaMiddleware.js` | Express middleware — resolves `arenaId` from URL, injects `req.arena`; `requireArenaKey` guards write endpoints |
 | `src/server/index.js` | 75 endpoints extracted to `express.Router`, mounted at `/api` and `/api/arenas/:arenaId` |
-| `agent-runner-host.js` | Reference implementation — external agent using direct Anthropic API (no Aetherist runtime) |
+| `agent-runner-host.js` | Reference implementation — external agent using direct Anthropic API (no 0G Compute) |
 
 ### Per-Arena State (Isolated)
 
@@ -61,7 +61,7 @@ All 75 game endpoints live in an `express.Router({ mergeParams: true })`, mounte
 
 ```
 app.use('/api/arenas/:arenaId', arenaMiddleware, gameRouter)  // specific arena
-app.use('/api', arenaMiddleware, gameRouter)                    // default "chaos" arena
+app.use('/api', arenaMiddleware, gameRouter)                    // default "aether" arena
 ```
 
 The `arenaMiddleware` resolves `req.params.arenaId` (or falls back to default) and injects `req.arena` — an `ArenaInstance` reference. All route handlers use `req.arena.worldState`, `req.arena.broadcastToRoom(...)`, etc.
@@ -76,13 +76,13 @@ Auth endpoints (`/api/auth/*`, `/api/me`, `/api/balance/*`, `/api/wallet/*`, `/a
 
 | Actor | Auth Method | Access |
 |-------|-------------|--------|
-| Our agent-runner.js | No auth (localhost, default arena) | Full control of chaos arena |
+| Our agent-runner-0g.js | No auth (localhost, default arena) | Full control of the default Aether arena |
 | External agent | `X-Arena-API-Key` header | Their arena's management endpoints |
 | Any AI agent | `GET /skill.md` → self-discovery | Create arena, get key, full control |
 | Player | Privy JWT (optional) | Join any arena, send chat |
 | Public | None | Arena list, public stats, read-only endpoints |
 
-The `requireArenaKey` middleware (in `arenaMiddleware.js`) validates `X-Arena-API-Key` for non-default arenas. Default (chaos) arena skips key check for backward compatibility with `agent-runner.js` on localhost.
+The `requireArenaKey` middleware (in `arenaMiddleware.js`) validates `X-Arena-API-Key` for non-default arenas. The default (aether) arena skips the key check so the local `agent-runner-0g.js` can drive it.
 
 ---
 
@@ -123,7 +123,7 @@ setInterval(() => {
 
 ## Agent Integration Model
 
-External AI agents discover and use the API through pure HTTP — no framework, no SDK, no Aetherist runtime required.
+External AI agents discover and use the API through pure HTTP — no framework, no SDK, no 0G Compute required.
 
 ### Self-Documenting API
 
@@ -145,7 +145,7 @@ Any AI agent can `curl https://aether.example/skill.md` to discover available en
 ### Reference Implementation
 
 `agent-runner-host.js` demonstrates the full flow:
-- Uses Anthropic Messages API directly (no Aetherist runtime, no SDK dependency)
+- Uses Anthropic Messages API directly (no 0G Compute, no SDK dependency)
 - Creates arena on startup, deletes on SIGINT
 - Polls context, sends to Claude Haiku, parses JSON action array
 - Executes up to 3 actions per tick (chat, game start, spells, announces)
@@ -153,13 +153,13 @@ Any AI agent can `curl https://aether.example/skill.md` to discover available en
 
 ### Agent Comparison
 
-| | `agent-runner.js` (Chaos) | `agent-runner-host.js` (External) |
+| | `agent-runner-0g.js` (Aether) | `agent-runner-host.js` (External reference) |
 |---|---|---|
-| Arena | Default chaos only | Any arena |
-| AI Provider | Aetherist runtime CLI → Claude | Direct Anthropic API |
-| Complexity | 450+ lines, drama scoring, phase tracking | ~200 lines, minimal |
+| Arena | Default `aether` only | Any arena |
+| AI Provider | **0G Compute Network** (broker SDK) | Direct Anthropic API |
 | Auth | None (localhost default) | `X-Arena-API-Key` header |
-| Framework | Aetherist runtime workspace + skills | Zero dependencies |
+| Payment | 0G broker ledger (per inference) | Anthropic billing |
+| Dependencies | `@0glabs/0g-serving-broker`, `ethers` | None |
 
 ---
 
@@ -289,7 +289,7 @@ Client API calls use `getApiBase()` which returns `/api` for chaos or `/api/aren
 
 | Component | Impact |
 |-----------|--------|
-| agent-runner.js | None — `/api/...` defaults to chaos |
+| agent-runner-0g.js | None — `/api/...` defaults to aether |
 | chat-bridge.js | None — defaults to chaos |
 | Existing client bookmarks | None — defaults to chaos |
 | SSE overlays (OBS) | None — defaults to chaos |

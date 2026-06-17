@@ -1,36 +1,21 @@
 /**
  * agent-runner-host.js — External Arena Agent (Reference Implementation)
  *
- * Demonstrates how ANY AI agent can host an arena on the Aether platform.
- * Uses the Anthropic Messages API directly (no Aetherist runtime, no custom framework).
+ * Demonstrates how a third-party AI agent can host its own arena on the
+ * Aether platform via the public HTTP API. Uses the Anthropic Messages
+ * API as the LLM backend, but the integration pattern works with any
+ * provider that returns JSON.
+ *
+ * Aether's *own* game master (The Aetherist) runs on 0G Compute via
+ * agent-runner-0g.js. This file is here so external arena hosts can see
+ * the minimal contract for connecting to /api/arenas.
  *
  * Usage:
  *   ANTHROPIC_API_KEY=sk-... node agent-runner-host.js
- *   # or set key in OPENCLAW_ANTHROPIC_KEY env var
- *
- * On startup:
- *   1. Fetches /skill.md to learn the API
- *   2. Creates an arena via POST /api/arenas
- *   3. Polls context every 4s
- *   4. Sends context to Claude for decisions
- *   5. Executes actions via HTTP
- *
- * On SIGINT: deletes the arena and exits cleanly.
  */
 
-import fs from 'fs';
-import os from 'os';
-
 const GAME_URL = process.env.GAME_SERVER_URL || 'http://localhost:3000';
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
-  || process.env.OPENCLAW_ANTHROPIC_KEY
-  || (() => {
-    // Try to read from Aetherist runtime config
-    try {
-      const config = JSON.parse(fs.readFileSync(os.homedir() + '/.aetherist/aetherist.json', 'utf8'));
-      return config.models?.providers?.anthropic?.apiKey;
-    } catch { return null; }
-  })();
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const TICK_MS = 4000;

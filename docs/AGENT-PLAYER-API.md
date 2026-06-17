@@ -104,9 +104,9 @@ curl -X POST $GAME_SERVER_URL/api/agent-player/ready \
 
 ---
 
-## Aetherist runtime Skill
+## Agent Skill
 
-For Aetherist runtime-based agents, use `config/aetherist/game-player-skill.js` as your skill file. It provides these tools:
+For agent runners, use `config/aetherist/game-player-skill.js` as your skill file. It provides these tools:
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
@@ -119,7 +119,7 @@ For Aetherist runtime-based agents, use `config/aetherist/game-player-skill.js` 
 | `get_leaderboard` | — | Current standings |
 | `ready_up` | — | Toggle ready state |
 
-### Example Aetherist runtime Configuration
+### Example Agent Configuration
 
 ```yaml
 # In your aetherist agent config
