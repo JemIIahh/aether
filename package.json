@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node src/server/index.js",
+    "server": "node --env-file=.env src/server/index.js",
     "client": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production node src/server/index.js",
+    "start": "NODE_ENV=production node --env-file=.env src/server/index.js",
     "test": "node src/server/test.js",
-    "world": "node src/server/index.js",
-    "aetherist": "node agent-runner-0g.js",
-    "aetherist:fund": "node scripts/og-fund-ledger.js"
+    "world": "node --env-file=.env src/server/index.js",
+    "aetherist": "node --env-file=.env agent-runner-0g.js",
+    "aetherist:fund": "node --env-file=.env scripts/og-fund-ledger.js"
   },
   "dependencies": {
     "@0glabs/0g-serving-broker": "^0.7.8",
