@@ -135,3 +135,30 @@ export class ZeroGStorage {
     });
   }
 }
+
+// ---- Module-level singleton + helpers ----
+
+let _instance = null;
+
+export function getStorage() {
+  if (!_instance) _instance = new ZeroGStorage();
+  return _instance;
+}
+
+/**
+ * Fire-and-forget storage upload for a finished game.
+ * Returns a promise that resolves to the rootHash (or null when disabled).
+ * Failures are logged but never thrown — game flow must not depend on
+ * 0G Storage being reachable.
+ */
+export async function persistGameResult(arenaId, record) {
+  const storage = getStorage();
+  if (!storage.enabled) return null;
+  try {
+    const rootHash = await storage.uploadGameResult(arenaId, record);
+    return rootHash;
+  } catch (err) {
+    console.error(`[Storage] persistGameResult failed for ${arenaId}/${record.id}:`, err.message);
+    return null;
+  }
+}

@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'crypto';
 import { saveGameHistory } from './db.js';
+import { persistGameResult } from './storage/ZeroGStorage.js';
 
 // Random obstacle patterns used by _spawnRandomObstacles
 const OBSTACLE_PATTERNS = ['sweeper', 'moving_wall', 'pendulum', 'falling_block'];
@@ -250,14 +251,35 @@ export class MiniGame {
     }
 
     // Fire-and-forget DB write
-    saveGameHistory({
+    const gameRecord = {
       id: this.id,
       type: this.type,
       startTime: this.startTime,
+      endTime: Date.now(),
       result,
       winnerId,
+      winners: this.winners,
       playerCount: this.players.size,
-      scores: Object.fromEntries(this.scores)
+      scores: Object.fromEntries(this.scores),
+    };
+    saveGameHistory(gameRecord);
+
+    // Fire-and-forget 0G Storage persistence. Asynchronous & best-effort —
+    // we capture the rootHash and re-broadcast once it lands so the UI can
+    // surface a "replay on 0G Storage" link. Game flow does not block on it.
+    const arenaId = this.worldState?.arenaId || 'aether';
+    persistGameResult(arenaId, gameRecord).then(rootHash => {
+      if (!rootHash) return;
+      console.log(`[Storage] game ${this.id} persisted to 0G rootHash=${rootHash.slice(0, 14)}…`);
+      try {
+        this.broadcast('game_persisted', {
+          id: this.id,
+          rootHash,
+          arenaId,
+        });
+      } catch (e) {
+        console.error('[Storage] failed to broadcast game_persisted:', e.message);
+      }
     });
 
     // Broadcast game ended
