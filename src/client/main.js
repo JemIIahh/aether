@@ -3155,11 +3155,22 @@ async function startAuthFlow() {
   const continueBtn = document.getElementById('btn-continue');
   const twitterBtn = document.getElementById('btn-twitter-login');
 
+  // Ensure the splash is visible for at least this long, so the brand moment
+  // registers even on instant-cache returning users / fast paths.
+  const MIN_SPLASH_MS = 1400;
+  const splashStartedAt = performance.now();
+  const waitForSplashMin = () => {
+    const elapsed = performance.now() - splashStartedAt;
+    const remaining = Math.max(0, MIN_SPLASH_MS - elapsed);
+    return remaining ? new Promise(r => setTimeout(r, remaining)) : Promise.resolve();
+  };
+
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
   }
 
-  function hideLoginScreen() {
+  async function hideLoginScreen() {
+    await waitForSplashMin();
     document.getElementById('login-screen').style.display = 'none';
   }
 
@@ -3199,7 +3210,7 @@ async function startAuthFlow() {
       });
       if (res.ok) {
         const user = await res.json();
-        hideLoginScreen();
+        await hideLoginScreen();
         return { token: existingToken, user };
       }
     } catch { /* token invalid or server unreachable */ }
@@ -3223,7 +3234,7 @@ async function startAuthFlow() {
         if (splashStatus) splashStatus.textContent = 'Logging in...';
         const result = await exchangeForBackendToken();
         if (result) {
-          hideLoginScreen();
+          await hideLoginScreen();
           return result;
         }
       }
@@ -3232,7 +3243,8 @@ async function startAuthFlow() {
     }
   }
 
-  // --- Transition: splash -> login buttons ---
+  // --- Transition: splash -> login buttons (minimum splash dwell) ---
+  await waitForSplashMin();
   if (splash) splash.style.display = 'none';
   if (buttonsContainer) buttonsContainer.style.display = 'block';
 
@@ -3257,7 +3269,7 @@ async function startAuthFlow() {
       const token = getToken();
       if (token) {
         await ensureEmbeddedWallet();
-        hideLoginScreen();
+        await hideLoginScreen();
         resolve({ token, user: { name: continueBtn.textContent.replace('Continue as ', '') } });
       }
     });
@@ -3283,7 +3295,7 @@ async function startAuthFlow() {
       setStatus('Creating guest session...');
       const result = await loginAsGuest();
       if (result) {
-        hideLoginScreen();
+        await hideLoginScreen();
         resolve(result);
       } else {
         setStatus('Failed to create session. Try again.');
