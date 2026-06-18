@@ -6,40 +6,45 @@
   <title>Aether</title>
   <style>
     /* ============================================================
-       Aether design system — cosmic violet
+       Aether design system — deep indigo + amber, flat & confident
+       (no glows, layered solid surfaces, bold rounded display type)
        ============================================================ */
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+
     :root {
-      /* Backgrounds (deep void → raised surface) */
-      --bg-void:    #07051a;
-      --bg-deep:    #0f0a28;
-      --bg-rise:    #1a103d;
-      --bg-panel:        rgba(45, 25, 92, 0.55);
-      --bg-panel-hover:  rgba(64, 36, 130, 0.72);
+      /* Backgrounds — flat solid layers (no radial halos, no glows) */
+      --bg-void:        #0e0828;   /* page background */
+      --bg-deep:        #16103a;   /* second layer */
+      --bg-card:        #1c1542;   /* card surface */
+      --bg-card-inner:  #15103a;   /* deep inside cards */
+      --bg-elevated:    #241a52;   /* hover / featured */
+      --bg-shade:       rgba(0,0,0,0.35);
 
-      /* Borders */
-      --border-soft:   rgba(168, 85, 247, 0.14);
-      --border-glow:   rgba(168, 85, 247, 0.45);
-      --border-strong: rgba(217, 70, 239, 0.75);
+      /* Borders — minimal, edge-only, no glow */
+      --border-hairline: rgba(255,255,255,0.06);
+      --border-card:     rgba(255,255,255,0.09);
+      --border-strong:   rgba(255,255,255,0.16);
 
-      /* Brand accents */
-      --aether-purple:  #a855f7;
-      --aether-violet:  #7c3aed;
-      --aether-magenta: #d946ef;
-      --aether-cyan:    #22d3ee;
-      --aether-gold:    #fbbf24;
-      --aether-mint:    #34d399;
-      --aether-pink:    #f43f5e;
+      /* Aether brand accents */
+      --aether-purple:  #a78bfa;   /* primary state — LOBBY, hover */
+      --aether-violet:  #7c3aed;   /* deeper purple — pressed / chosen */
+      --aether-amber:   #fbbf24;   /* FEATURED tab + currency + tab bar */
+      --aether-amber-deep: #d97706;
+      --aether-cyan:    #67e8f9;   /* magic / active accent */
+      --aether-mint:    #34d399;   /* success / playing */
+      --aether-coral:   #fb7185;   /* danger / hot */
+      --aether-magenta: #e879f9;   /* legacy alias — used by a few rules */
+      --aether-pink:    #fb7185;
+      --aether-gold:    #fbbf24;   /* legacy alias for currency */
 
       /* Text */
       --text-primary:   #f4f4f5;
-      --text-secondary: #c4b5fd;
-      --text-muted:     #94a3b8;
+      --text-secondary: #a5a3b8;
+      --text-muted:     #71708a;
 
-      /* Glows */
-      --glow-purple:  0 0 24px rgba(168, 85, 247, 0.55);
-      --glow-magenta: 0 0 30px rgba(217, 70, 239, 0.45);
-      --glow-cyan:    0 0 20px rgba(34, 211, 238, 0.4);
-      --glow-gold:    0 0 18px rgba(251, 191, 36, 0.45);
+      /* Drop shadows (for depth, NOT glow) */
+      --shadow-card:    0 16px 40px -16px rgba(0,0,0,0.7);
+      --shadow-lift:    0 8px 24px -8px rgba(0,0,0,0.55);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -100,7 +105,9 @@
       align-items: center;
       justify-content: center;
       z-index: 1000;
-      background: radial-gradient(ellipse 80% 60% at 50% 35%, #2a1466 0%, var(--bg-deep) 45%, var(--bg-void) 100%);
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 18px 18px,
+        var(--bg-void);
     }
     .login-container {
       text-align: center;
@@ -189,7 +196,9 @@
       align-items: center;
       justify-content: center;
       z-index: 999;
-      background: radial-gradient(ellipse 80% 60% at 50% 35%, #2a1466 0%, var(--bg-deep) 45%, var(--bg-void) 100%);
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 18px 18px,
+        var(--bg-void);
     }
     .lobby-container {
       text-align: center;
@@ -1251,176 +1260,217 @@
     }
 
     /* ============================================================
-       Aether brand finishing — targeted overrides on top of base
+       Aether brand finishing — flat solid surfaces, no glow
+       Display type: Fredoka (heavy rounded). Accent: amber.
        ============================================================ */
 
-    /* Subtle starfield glow on body to back the cosmic gradient */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(1px 1px at 20% 30%, rgba(196,181,253,0.45), transparent 60%),
-        radial-gradient(1px 1px at 70% 15%, rgba(168,85,247,0.5),  transparent 60%),
-        radial-gradient(1px 1px at 50% 80%, rgba(217,70,239,0.35), transparent 60%),
-        radial-gradient(1px 1px at 85% 65%, rgba(196,181,253,0.4), transparent 60%),
-        radial-gradient(1px 1px at 12% 75%, rgba(34,211,238,0.35), transparent 60%);
-      z-index: 0;
+    /* Display typography on H1 across the app */
+    body, button, input, .login-subtitle, .lobby-subtitle, .chat-msg, .arena-card-desc, .arena-card-meta {
+      font-family: 'Fredoka', system-ui, -apple-system, sans-serif;
     }
-
-    /* Glass-panel surfaces (login + lobby) — richer, with depth */
-    .login-container,
-    .lobby-container {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-glow);
-      box-shadow:
-        0 24px 60px -20px rgba(0,0,0,0.6),
-        0 0 0 1px rgba(255,255,255,0.03) inset,
-        var(--glow-purple);
-      backdrop-filter: blur(18px) saturate(140%);
-      -webkit-backdrop-filter: blur(18px) saturate(140%);
-    }
-    .login-container h1,
-    .lobby-container h1 {
-      background: linear-gradient(135deg, #fff, var(--aether-purple));
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: transparent;
+    h1, .lobby-container h1, .login-container h1, .arena-card-name, .bribe-modal-header h3 {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-weight: 700;
       letter-spacing: -0.5px;
     }
 
-    /* Arena cards */
+    /* Login + arena lobby — solid panel, deep card surface, drop shadow only */
+    .login-container,
+    .lobby-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      box-shadow: var(--shadow-card);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .login-container h1,
+    .lobby-container h1 {
+      color: var(--text-primary);
+      background: none;
+      -webkit-text-fill-color: var(--text-primary);
+      font-size: 30px;
+    }
+    .login-subtitle,
+    .lobby-subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    /* Arena cards — chaos-arena style: amber FEATURED tab overlapping
+       the top edge, amber left border on the default card, no glow */
+    .arena-list {
+      gap: 12px;
+    }
     .arena-card {
-      background: rgba(168,85,247,0.05);
-      border-color: var(--border-soft);
+      background: var(--bg-card-inner);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 16px 18px;
+      transition: background 0.15s, border-color 0.15s, transform 0.12s;
     }
     .arena-card:hover {
-      background: var(--bg-panel-hover);
-      border-color: var(--border-glow);
-      box-shadow: var(--glow-purple);
-      transform: translateY(-2px);
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-lift);
+      transform: translateY(-1px);
     }
     .arena-card.default {
-      border-color: var(--border-glow);
-      background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(217,70,239,0.08));
-      box-shadow: var(--glow-purple);
+      background: var(--bg-card-inner);
+      border: 1px solid var(--border-card);
+      border-left: 4px solid var(--aether-amber);
+      padding-left: 18px;
+      margin-top: 12px;
+      position: relative;
+      overflow: visible;
     }
     .arena-card.default::before {
-      background: linear-gradient(135deg, var(--aether-magenta), var(--aether-violet));
-      box-shadow: var(--glow-magenta);
-      letter-spacing: 1.5px;
+      content: 'FEATURED';
+      position: absolute;
+      top: -12px;
+      left: 14px;
+      background: var(--aether-amber);
+      color: #1a0a00;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      box-shadow: none;
     }
     .arena-card-name {
       color: var(--text-primary);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .arena-card-meta,
+    .arena-card-desc {
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    .arena-card-badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      box-shadow: none;
     }
     .arena-card-badge.lobby {
-      background: rgba(168,85,247,0.22);
-      color: var(--aether-purple);
-      box-shadow: 0 0 0 1px rgba(168,85,247,0.25) inset;
+      background: var(--aether-purple);
+      color: #1a0a40;
     }
     .arena-card-badge.playing {
-      background: rgba(52,211,153,0.18);
-      color: var(--aether-mint);
-      box-shadow: 0 0 0 1px rgba(52,211,153,0.25) inset;
+      background: var(--aether-mint);
+      color: #0a2a18;
     }
     .arena-card-badge.countdown {
-      background: rgba(217,70,239,0.18);
-      color: var(--aether-magenta);
-      box-shadow: 0 0 0 1px rgba(217,70,239,0.25) inset;
+      background: var(--aether-amber);
+      color: #1a0a00;
     }
 
-    /* Keyboard / kbd faces — replace flat grey for subtle violet */
+    /* Keyboard hint strip — flat dark indigo tiles, no glow */
     #controls {
-      background: rgba(10, 6, 30, 0.78);
-      border: 1px solid var(--border-soft);
-      box-shadow:
-        0 12px 32px -12px rgba(0,0,0,0.6),
-        0 0 0 1px rgba(255,255,255,0.03) inset;
-      backdrop-filter: blur(12px) saturate(140%);
-      -webkit-backdrop-filter: blur(12px) saturate(140%);
+      background: rgba(14, 8, 40, 0.88);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: var(--shadow-lift);
     }
     #controls kbd {
-      background: linear-gradient(180deg, #3b2470 0%, #1c103d 100%);
-      border: 1px solid rgba(168,85,247,0.4);
-      border-bottom: 3px solid rgba(124,58,237,0.85);
-      color: #fff;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
-      box-shadow:
-        0 1px 0 rgba(255,255,255,0.08) inset,
-        0 2px 4px rgba(0,0,0,0.45);
+      background: #2a1f55;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 3px solid #14102a;
+      color: var(--text-primary);
+      box-shadow: none;
+      text-shadow: none;
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-weight: 600;
     }
     .control-label {
       color: var(--text-secondary);
-      opacity: 0.85;
+      opacity: 0.7;
+      font-weight: 500;
     }
 
-    /* Bribe button — kill orange, lean into magenta */
+    /* In-game phase pill (LOBBY etc.) — flat purple, no glow */
+    #game-status.lobby {
+      border: 2px solid var(--aether-purple);
+      box-shadow: none;
+    }
+    #game-status.countdown {
+      animation: none;
+      box-shadow: none;
+    }
+    @keyframes statusPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: none; } }
+
+    /* Bribe button — solid amber, no glow, no orange-orange */
     .bribe-btn {
-      background: linear-gradient(135deg, var(--aether-magenta), var(--aether-violet));
-      color: #fff;
+      background: var(--aether-amber);
+      color: #1a0a00;
       padding: 11px 22px;
-      box-shadow:
-        var(--glow-magenta),
-        0 4px 14px -4px rgba(217,70,239,0.55);
-      letter-spacing: 0.3px;
+      border-radius: 10px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px -4px rgba(0,0,0,0.5);
+      letter-spacing: 0.2px;
     }
     .bribe-btn:hover {
-      filter: brightness(1.1);
+      filter: brightness(1.07);
+      transform: translateY(-1px);
     }
     .bribe-balance {
-      color: var(--aether-gold);
-      text-shadow: var(--glow-gold);
+      color: var(--aether-amber);
+      text-shadow: none;
+      font-weight: 600;
     }
     .bribe-modal-content {
-      background: var(--bg-rise);
-      border: 1px solid var(--border-glow);
-      box-shadow: var(--glow-purple);
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      box-shadow: var(--shadow-card);
     }
     .bribe-modal-header h3 {
-      color: var(--aether-magenta);
+      color: var(--aether-amber);
+    }
+    .bribe-option {
+      background: var(--bg-card-inner);
+      border-color: var(--border-card);
     }
     .bribe-option:hover {
-      background: rgba(168,85,247,0.12);
-      border-color: var(--border-glow);
+      background: var(--bg-elevated);
+      border-color: var(--border-strong);
     }
     .bribe-opt-cost {
-      color: var(--aether-gold);
+      color: var(--aether-amber);
+      font-weight: 700;
     }
 
-    /* Chat — system messages no longer amber/orange */
-    .chat-msg.system .sender { color: var(--text-secondary); opacity: 0.75; }
-    .chat-msg.agent  .sender { color: var(--aether-magenta); }
-    .chat-msg.player .sender { color: var(--aether-cyan); }
-    .chat-msg .text .at-agent { color: var(--aether-magenta); }
+    /* Chat — readable neutrals + branded senders */
+    .chat-msg.system .sender { color: var(--text-secondary); opacity: 0.8; font-weight: 500; }
+    .chat-msg.agent  .sender { color: var(--aether-amber); font-weight: 700; }
+    .chat-msg.player .sender { color: var(--aether-cyan); font-weight: 600; }
+    .chat-msg .text .at-agent { color: var(--aether-amber); }
 
-    /* Phase pill (LOBBY badge in-game) */
-    .announcement.system,
-    #phase-display,
-    .phase-badge,
-    .lobby-pill {
-      box-shadow: var(--glow-purple);
-    }
-
-    /* How To Play pill — strengthen the brand tint */
+    /* How-to-play pill — small flat purple */
     #help-btn {
-      background: rgba(168,85,247,0.18);
-      border: 1px solid var(--border-glow);
-      color: var(--text-primary);
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.04) inset,
-        0 4px 12px -4px rgba(168,85,247,0.4);
+      background: var(--aether-purple);
+      color: #1a0a40;
+      border: none;
+      border-radius: 999px;
+      font-weight: 700;
+      box-shadow: var(--shadow-lift);
     }
     #help-btn:hover {
-      background: rgba(168,85,247,0.32);
-      box-shadow: var(--glow-purple);
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-lift);
     }
 
-    /* Wallet panel — balance value gets gold treatment */
+    /* Wallet panel — amber currency value */
     .wp-balance-value {
-      color: var(--aether-gold);
-      text-shadow: var(--glow-gold);
+      color: var(--aether-amber);
+      text-shadow: none;
+      font-weight: 700;
     }
     .wp-balance-label {
       color: var(--text-secondary);
