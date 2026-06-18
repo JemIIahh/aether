@@ -14,7 +14,10 @@ import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
 
 const ZG_RPC_URL = process.env.OG_RPC_URL || 'https://evmrpc-testnet.0g.ai';
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
-const AMOUNT_0G = Number(process.argv[2] || 5);
+// Default 2 0G — minimum that allows the broker SDK to auto-fund a provider
+// sub-account on first inference (which requires 2 0G transferred in). For a
+// longer-running demo, pass a bigger number: `node scripts/og-fund-ledger.js 5`.
+const AMOUNT_0G = Number(process.argv[2] || 2);
 
 if (!DEPLOYER_PRIVATE_KEY) {
   console.error('Set DEPLOYER_PRIVATE_KEY env var (0G wallet with native tokens).');
