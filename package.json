@@ -12,7 +12,8 @@
     "test": "node src/server/test.js",
     "world": "node --env-file=.env src/server/index.js",
     "aetherist": "node --env-file=.env agent-runner-0g.js",
-    "aetherist:fund": "node --env-file=.env scripts/og-fund-ledger.js"
+    "aetherist:fund": "node --env-file=.env scripts/og-fund-ledger.js",
+    "bribe:e2e": "node --env-file=.env scripts/og-bribe-e2e.js"
   },
   "dependencies": {
     "@0glabs/0g-serving-broker": "^0.7.8",
