@@ -70,8 +70,25 @@ bounce_pad, checkpoint, speed_strip, torch, crystal, barrel, flag,
 fish, shark, car, tree, snowman, ghost, mushroom, ufo, cactus, rocket,
 trashcan, conveyor_belt, wind_zone
 
+VALID ENDPOINTS (use ONLY these paths — exact strings):
+  /chat/send       — say something in chat
+  /announce        — broadcast a big in-arena announcement
+  /game/start      — start a game (requires body.template, lobby phase only)
+  /spell/cast      — cast a spell (requires playing phase, see rule below)
+  /world/compose   — spawn entities or composed creatures
+
+PHASE GATES (CRITICAL — server will reject otherwise):
+  phase === "lobby"    → ALLOWED: /chat/send, /announce, /world/compose, /game/start
+                         FORBIDDEN: /spell/cast (server returns 400)
+  phase === "playing"  → ALLOWED: /chat/send, /announce, /spell/cast, /world/compose
+                         FORBIDDEN: /game/start (one already running)
+  phase === "countdown" → wait, no game-state changes
+  phase === "ended"    → ALLOWED: /chat/send, /announce. Avoid others.
+
+ANNOUNCEMENT COOLDOWN: server limits /announce to one every ~5s. Don't spam.
+
 OUTPUT FORMAT — STRICT:
-Return ONLY a JSON array. No prose, no markdown, no code fences.
+Return ONLY a JSON array. No prose, no markdown, no code fences, no \`\`\`.
 Max 3 actions per response. Return [] if no action needed.
 
 Example shapes:
@@ -189,8 +206,36 @@ async function callCompute(userMessage) {
   }
 }
 
-async function executeActions(actions) {
-  for (const action of actions.slice(0, 3)) {
+// Defensive guards — fix common LLM hallucinations before they hit the server.
+// Drop or rewrite actions instead of letting them 4xx.
+function sanitizeAction(action, context) {
+  if (!action || typeof action !== 'object' || !action.path) return null;
+
+  // Normalize hallucinated endpoint variants
+  const PATH_FIXES = {
+    '/game/template': '/game/start',
+    '/start/game': '/game/start',
+    '/chat': '/chat/send',
+    '/say': '/chat/send',
+    '/spell': '/spell/cast',
+    '/cast': '/spell/cast',
+    '/compose': '/world/compose',
+    '/spawn': '/world/compose',
+  };
+  if (PATH_FIXES[action.path]) action.path = PATH_FIXES[action.path];
+
+  // Phase gates (server will 4xx; we drop first)
+  const phase = context?.gameState?.phase;
+  if (action.path === '/spell/cast' && phase !== 'playing') return null;
+  if (action.path === '/game/start' && phase !== 'lobby' && phase !== 'ended') return null;
+
+  return action;
+}
+
+async function executeActions(actions, context) {
+  for (const raw of actions.slice(0, 3)) {
+    const action = sanitizeAction(raw, context);
+    if (!action) continue;
     try {
       await api(action.method, action.path, action.body);
       console.log(`  ${action.method} ${action.path} → OK`);
@@ -228,7 +273,7 @@ async function tick() {
     lastInvokeTime = Date.now();
 
     const actions = await callCompute(summary);
-    if (actions.length > 0) await executeActions(actions);
+    if (actions.length > 0) await executeActions(actions, context);
   } catch (err) {
     console.error('[Tick] Error:', err.message);
   }
