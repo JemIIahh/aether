@@ -1479,13 +1479,132 @@
     .wp-balance-label {
       color: var(--text-secondary);
     }
+
+    /* ============================================================
+       Splash / loading screen — chunky halftone logo + cinematic spinner
+       ============================================================ */
+
+    #login-splash,
+    #login-buttons-container {
+      padding: 56px 48px 44px;
+      min-width: 420px;
+    }
+
+    .brand-logo {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 96px;
+      line-height: 0.95;
+      letter-spacing: -2px;
+      text-transform: uppercase;
+      margin: 0 0 14px;
+      /* Halftone dot pattern punched into the acid fill */
+      background:
+        radial-gradient(circle at 1.2px 1.2px, rgba(0,0,0,0.28) 1.4px, transparent 0) 0 0 / 6px 6px,
+        var(--aether-acid);
+      -webkit-background-clip: text;
+              background-clip: text;
+      -webkit-text-fill-color: transparent;
+              color: transparent;
+      /* Two-step drop shadow for chunky 3D feel (NOT a glow) */
+      filter:
+        drop-shadow(0 2px 0 rgba(0,0,0,0.55))
+        drop-shadow(0 8px 16px rgba(0,0,0,0.45));
+    }
+
+    /* Subtitle on the splash sits closer + slightly muted */
+    #login-splash .login-subtitle,
+    #login-buttons-container .login-subtitle {
+      color: var(--text-secondary);
+      font-size: 15px;
+      font-weight: 400;
+      margin-bottom: 32px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Loader stack */
+    .login-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    /* Horizontal gradient sweep bar — modern AAA gaming loader.
+       A faint pill-shaped track with a chartreuse→pink comet that
+       sweeps left to right on loop. No glow, just motion. */
+    .loader-spinner {
+      width: 260px;
+      height: 6px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      animation: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .loader-spinner::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 42%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--aether-acid) 35%,
+        var(--aether-pink) 65%,
+        transparent 100%
+      );
+      border-radius: 999px;
+      animation: loaderSweep 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    @keyframes loaderSweep {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(245%); }
+    }
+
+    /* Tiny inline spinner used inside the Twitter button — kept compact
+       and circular (different visual context from the splash loader) */
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      background: transparent;
+      animation: spin 0.7s linear infinite;
+      overflow: visible;
+    }
+    .btn-spinner::before { content: none; }
+
+    .login-status {
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* Subtle ambient pulse on the logo while waiting — *no glow*,
+       just a tiny scale wobble to suggest "alive" */
+    #login-splash .brand-logo {
+      animation: brandIdle 3.6s ease-in-out infinite;
+    }
+    @keyframes brandIdle {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.015); }
+    }
   </style>
 </head>
 <body>
   <div id="login-screen">
     <!-- Phase 1: Loading splash (visible by default) -->
     <div id="login-splash" class="login-container">
-      <h1>Aether</h1>
+      <h1 class="brand-logo">Aether</h1>
       <p class="login-subtitle">The Aetherist awaits...</p>
       <div class="login-loader">
         <div class="loader-spinner"></div>
@@ -1494,7 +1613,7 @@
     </div>
     <!-- Phase 2: Login buttons (hidden until ready) -->
     <div id="login-buttons-container" class="login-container" style="display:none">
-      <h1>Aether</h1>
+      <h1 class="brand-logo">Aether</h1>
       <p class="login-subtitle">The Aetherist awaits...</p>
       <div class="login-buttons">
         <button id="btn-continue" class="login-btn continue" style="display:none">Continue</button>
