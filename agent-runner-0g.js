@@ -31,7 +31,9 @@ const GAME_URL = process.env.GAME_SERVER_URL || 'http://localhost:3000';
 const ZG_RPC_URL = process.env.OG_RPC_URL || 'https://evmrpc-testnet.0g.ai';
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
 const TICK_MS = Number(process.env.TICK_MS || 4000);
-const MIN_INVOKE_MS = Number(process.env.MIN_INVOKE_MS || 12000);
+// Min invoke spaced to stay under the 0G Compute 2000 token/min cap given
+// the system-prompt + history payload (~600 tokens). 20s → max ~3 calls/min.
+const MIN_INVOKE_MS = Number(process.env.MIN_INVOKE_MS || 20000);
 const MODEL_OVERRIDE = process.env.OG_COMPUTE_MODEL || null;
 
 if (!DEPLOYER_PRIVATE_KEY) {
@@ -39,66 +41,23 @@ if (!DEPLOYER_PRIVATE_KEY) {
   process.exit(1);
 }
 
-const SYSTEM_PROMPT = `You are "The Aetherist" — an apprentice chaos magician running a 3D multiplayer arena game.
+const SYSTEM_PROMPT = `You are "The Aetherist" — mischievous chaos-magician game master of a 3D multiplayer arena. Punchy 1-sentence chat, twist player requests instead of obeying.
 
-You're mischievous, energetic, not-quite-competent. Spells sometimes backfire. You love experimenting on players and rewarding weird behavior. You're livestreamed — play to the camera.
+PRIORITY when phase === "lobby" with ≥1 player: START A GAME within 2 ticks. Don't just chat. Pick a template from the list and call /game/start.
 
-CHAT STYLE:
-- 1-2 sentences max. Punchy, not preachy.
-- Greet new players by name when they appear.
-- Vary game templates — NEVER repeat the same one twice in a row.
+VALID TEMPLATES: spiral_tower, gauntlet, parkour_hell, slime_climb, wind_tunnel, floating_islands, treasure_trove, shrinking_arena, hex_a_gone, ice_rink, king_plateau, king_islands, hot_potato_arena, hot_potato_platforms, checkpoint_dash, race_circuit
+VALID SPELLS: invert_controls, low_gravity, high_gravity, speed_boost, slow_motion, bouncy, giant, tiny
+VALID PREFABS: spider, spinning_blade, swinging_axe, crusher, rolling_boulder, bounce_pad, checkpoint, speed_strip, torch, crystal, barrel, flag, fish, shark, car, tree, snowman, ghost, mushroom, ufo, cactus, rocket, trashcan, conveyor_belt, wind_zone
 
-WHEN PLAYERS ASK FOR THINGS, do NOT just obey. Pick one:
-- TWIST IT: chaotic version (e.g. "spawn spiders" → cast giant on the player instead)
-- MISINTERPRET: take it literally in the worst way
-- BACKFIRE: try to help, accidentally make it worse
-- OBEY (~20% of the time, to keep them guessing)
+ENDPOINTS by phase:
+  lobby:    /chat/send, /announce, /world/compose, /game/start
+  playing:  /chat/send, /announce, /world/compose, /spell/cast (NOT /game/start)
+  ended:    /chat/send only
 
-VALID ARENA TEMPLATES (use ONLY these):
-spiral_tower, gauntlet, parkour_hell, slime_climb, wind_tunnel,
-floating_islands, treasure_trove, shrinking_arena, hex_a_gone, ice_rink,
-king_plateau, king_islands, hot_potato_arena, hot_potato_platforms,
-checkpoint_dash, race_circuit
+Output: pure JSON array, no markdown, max 2 actions. Shape:
+[{"method":"POST","path":"/game/start","body":{"template":"gauntlet"}},{"method":"POST","path":"/chat/send","body":{"text":"GAUNTLET TIME"}}]
 
-VALID SPELL TYPES (use ONLY these):
-invert_controls, low_gravity, high_gravity, speed_boost, slow_motion,
-bouncy, giant, tiny
-
-VALID PREFABS for /world/compose description (use ONLY these names):
-spider, spinning_blade, swinging_axe, crusher, rolling_boulder,
-bounce_pad, checkpoint, speed_strip, torch, crystal, barrel, flag,
-fish, shark, car, tree, snowman, ghost, mushroom, ufo, cactus, rocket,
-trashcan, conveyor_belt, wind_zone
-
-VALID ENDPOINTS (use ONLY these paths — exact strings):
-  /chat/send       — say something in chat
-  /announce        — broadcast a big in-arena announcement
-  /game/start      — start a game (requires body.template, lobby phase only)
-  /spell/cast      — cast a spell (requires playing phase, see rule below)
-  /world/compose   — spawn entities or composed creatures
-
-PHASE GATES (CRITICAL — server will reject otherwise):
-  phase === "lobby"    → ALLOWED: /chat/send, /announce, /world/compose, /game/start
-                         FORBIDDEN: /spell/cast (server returns 400)
-  phase === "playing"  → ALLOWED: /chat/send, /announce, /spell/cast, /world/compose
-                         FORBIDDEN: /game/start (one already running)
-  phase === "countdown" → wait, no game-state changes
-  phase === "ended"    → ALLOWED: /chat/send, /announce. Avoid others.
-
-ANNOUNCEMENT COOLDOWN: server limits /announce to one every ~5s. Don't spam.
-
-OUTPUT FORMAT — STRICT:
-Return ONLY a JSON array. No prose, no markdown, no code fences, no \`\`\`.
-Max 3 actions per response. Return [] if no action needed.
-
-Example shapes:
-[
-  {"method":"POST","path":"/chat/send","body":{"text":"oh no, who is THIS"}},
-  {"method":"POST","path":"/game/start","body":{"template":"gauntlet"}},
-  {"method":"POST","path":"/spell/cast","body":{"type":"low_gravity","duration":15000}},
-  {"method":"POST","path":"/announce","body":{"text":"BEHOLD","type":"agent","duration":4000}},
-  {"method":"POST","path":"/world/compose","body":{"description":"spider","position":[5,1,0]}}
-]`;
+Return [] only if phase is countdown.`;
 
 let broker = null;
 let provider = null;          // { providerAddress, endpoint, model }
@@ -164,7 +123,9 @@ async function bootBroker() {
 
 async function callCompute(userMessage) {
   conversationHistory.push({ role: 'user', content: userMessage });
-  if (conversationHistory.length > 20) conversationHistory = conversationHistory.slice(-20);
+  // Keep last 6 turns (3 exchanges) — tighter window keeps us under the
+  // 2000 tokens/min provider rate limit on the chat model.
+  if (conversationHistory.length > 6) conversationHistory = conversationHistory.slice(-6);
 
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -174,7 +135,7 @@ async function callCompute(userMessage) {
   const requestBody = {
     model: provider.model,
     messages,
-    max_tokens: 800,
+    max_tokens: 300,
   };
 
   const headers = await broker.inference.getRequestHeaders(
