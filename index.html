@@ -12,39 +12,42 @@
     @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
 
     :root {
-      /* Backgrounds — flat solid layers (no radial halos, no glows) */
-      --bg-void:        #0e0828;   /* page background */
-      --bg-deep:        #16103a;   /* second layer */
-      --bg-card:        #1c1542;   /* card surface */
-      --bg-card-inner:  #15103a;   /* deep inside cards */
-      --bg-elevated:    #241a52;   /* hover / featured */
-      --bg-shade:       rgba(0,0,0,0.35);
+      /* Backgrounds — near-black with a cool, neutral cast (not purple). */
+      --bg-void:        #07080d;   /* page background — deep cyber-noir */
+      --bg-deep:        #0d0f17;   /* second layer */
+      --bg-card:        #141822;   /* card surface */
+      --bg-card-inner:  #0e1118;   /* inner / deep area */
+      --bg-elevated:    #1c2030;   /* hover / lifted */
 
-      /* Borders — minimal, edge-only, no glow */
-      --border-hairline: rgba(255,255,255,0.06);
+      /* Borders — pure neutral hairlines */
+      --border-hairline: rgba(255,255,255,0.05);
       --border-card:     rgba(255,255,255,0.09);
-      --border-strong:   rgba(255,255,255,0.16);
+      --border-strong:   rgba(255,255,255,0.18);
 
-      /* Aether brand accents */
-      --aether-purple:  #a78bfa;   /* primary state — LOBBY, hover */
-      --aether-violet:  #7c3aed;   /* deeper purple — pressed / chosen */
-      --aether-amber:   #fbbf24;   /* FEATURED tab + currency + tab bar */
-      --aether-amber-deep: #d97706;
-      --aether-cyan:    #67e8f9;   /* magic / active accent */
-      --aether-mint:    #34d399;   /* success / playing */
-      --aether-coral:   #fb7185;   /* danger / hot */
-      --aether-magenta: #e879f9;   /* legacy alias — used by a few rules */
-      --aether-pink:    #fb7185;
-      --aether-gold:    #fbbf24;   /* legacy alias for currency */
+      /* === Aether brand: electric chartreuse + cyber pink + laser cyan === */
+      --aether-acid:    #d4ff00;   /* PRIMARY — FEATURED tab, currency, key CTAs */
+      --aether-acid-deep: #a3d600;
+      --aether-pink:    #ff2d92;   /* SECONDARY — LOBBY pill, agent voice */
+      --aether-pink-deep: #d11878;
+      --aether-cyan:    #00f0ff;   /* TERTIARY — magic / spells / player chat */
+      --aether-mint:    #34d399;   /* PLAYING / success state */
+      --aether-coral:   #ff4d6d;   /* DANGER / hot */
+      --aether-violet:  #8b5cf6;   /* SUPPORT — info / countdown */
+
+      /* Legacy aliases (so older selectors don't break) */
+      --aether-purple:  var(--aether-pink);
+      --aether-magenta: var(--aether-pink);
+      --aether-amber:   var(--aether-acid);
+      --aether-gold:    var(--aether-acid);
 
       /* Text */
       --text-primary:   #f4f4f5;
-      --text-secondary: #a5a3b8;
-      --text-muted:     #71708a;
+      --text-secondary: #9ca3af;
+      --text-muted:     #6b7280;
 
-      /* Drop shadows (for depth, NOT glow) */
-      --shadow-card:    0 16px 40px -16px rgba(0,0,0,0.7);
-      --shadow-lift:    0 8px 24px -8px rgba(0,0,0,0.55);
+      /* Drop shadows — for depth, never glow */
+      --shadow-card:    0 16px 40px -16px rgba(0,0,0,0.8);
+      --shadow-lift:    0 8px 24px -8px rgba(0,0,0,0.6);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1298,8 +1301,8 @@
       font-weight: 400;
     }
 
-    /* Arena cards — chaos-arena style: amber FEATURED tab overlapping
-       the top edge, amber left border on the default card, no glow */
+    /* Arena cards — acid FEATURED tab overlapping the top edge, acid
+       left bar on the default card, no glow. Solid surfaces only. */
     .arena-list {
       gap: 12px;
     }
@@ -1319,7 +1322,7 @@
     .arena-card.default {
       background: var(--bg-card-inner);
       border: 1px solid var(--border-card);
-      border-left: 4px solid var(--aether-amber);
+      border-left: 4px solid var(--aether-acid);
       padding-left: 18px;
       margin-top: 12px;
       position: relative;
@@ -1330,12 +1333,12 @@
       position: absolute;
       top: -12px;
       left: 14px;
-      background: var(--aether-amber);
-      color: #1a0a00;
+      background: var(--aether-acid);
+      color: #0a1100;
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: 1px;
-      padding: 4px 10px;
+      letter-spacing: 1.2px;
+      padding: 5px 11px;
       border-radius: 999px;
       box-shadow: none;
     }
@@ -1356,16 +1359,16 @@
       box-shadow: none;
     }
     .arena-card-badge.lobby {
-      background: var(--aether-purple);
-      color: #1a0a40;
+      background: var(--aether-pink);
+      color: #200012;
     }
     .arena-card-badge.playing {
       background: var(--aether-mint);
-      color: #0a2a18;
+      color: #042617;
     }
     .arena-card-badge.countdown {
-      background: var(--aether-amber);
-      color: #1a0a00;
+      background: var(--aether-acid);
+      color: #0a1100;
     }
 
     /* Keyboard hint strip — flat dark indigo tiles, no glow */
@@ -1393,33 +1396,34 @@
       font-weight: 500;
     }
 
-    /* In-game phase pill (LOBBY etc.) — flat purple, no glow */
+    /* In-game phase pill (LOBBY etc.) — flat pink outline, no glow */
     #game-status.lobby {
-      border: 2px solid var(--aether-purple);
+      border: 2px solid var(--aether-pink);
       box-shadow: none;
     }
     #game-status.countdown {
       animation: none;
       box-shadow: none;
+      border: 2px solid var(--aether-acid);
     }
     @keyframes statusPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: none; } }
 
-    /* Bribe button — solid amber, no glow, no orange-orange */
+    /* Bribe button — solid acid chartreuse, dark text, no orange anywhere */
     .bribe-btn {
-      background: var(--aether-amber);
-      color: #1a0a00;
+      background: var(--aether-acid);
+      color: #0a1100;
       padding: 11px 22px;
       border-radius: 10px;
       font-weight: 700;
-      box-shadow: 0 4px 14px -4px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 14px -4px rgba(0,0,0,0.55);
       letter-spacing: 0.2px;
     }
     .bribe-btn:hover {
-      filter: brightness(1.07);
+      filter: brightness(1.05);
       transform: translateY(-1px);
     }
     .bribe-balance {
-      color: var(--aether-amber);
+      color: var(--aether-acid);
       text-shadow: none;
       font-weight: 600;
     }
@@ -1430,7 +1434,7 @@
       box-shadow: var(--shadow-card);
     }
     .bribe-modal-header h3 {
-      color: var(--aether-amber);
+      color: var(--aether-acid);
     }
     .bribe-option {
       background: var(--bg-card-inner);
@@ -1441,34 +1445,34 @@
       border-color: var(--border-strong);
     }
     .bribe-opt-cost {
-      color: var(--aether-amber);
+      color: var(--aether-acid);
       font-weight: 700;
     }
 
     /* Chat — readable neutrals + branded senders */
     .chat-msg.system .sender { color: var(--text-secondary); opacity: 0.8; font-weight: 500; }
-    .chat-msg.agent  .sender { color: var(--aether-amber); font-weight: 700; }
-    .chat-msg.player .sender { color: var(--aether-cyan); font-weight: 600; }
-    .chat-msg .text .at-agent { color: var(--aether-amber); }
+    .chat-msg.agent  .sender { color: var(--aether-pink);    font-weight: 700; }
+    .chat-msg.player .sender { color: var(--aether-cyan);    font-weight: 600; }
+    .chat-msg .text .at-agent { color: var(--aether-pink); }
 
-    /* How-to-play pill — small flat purple */
+    /* How-to-play pill — small flat cyber pink */
     #help-btn {
-      background: var(--aether-purple);
-      color: #1a0a40;
+      background: var(--aether-pink);
+      color: #200012;
       border: none;
       border-radius: 999px;
       font-weight: 700;
       box-shadow: var(--shadow-lift);
     }
     #help-btn:hover {
-      filter: brightness(1.08);
+      filter: brightness(1.06);
       transform: translateY(-1px);
       box-shadow: var(--shadow-lift);
     }
 
-    /* Wallet panel — amber currency value */
+    /* Wallet panel — acid currency value */
     .wp-balance-value {
-      color: var(--aether-amber);
+      color: var(--aether-acid);
       text-shadow: none;
       font-weight: 700;
     }
