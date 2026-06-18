@@ -157,10 +157,15 @@ async function attemptReconnect() {
 // ============================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x2a2a4e);
-scene.fog = new THREE.FogExp2(0x2a2a4e, 0.012);
+// Match cyber-noir bg-void (#07080d) so the world reads as continuous space
+// instead of "small lit stage on dark backdrop". Lighter density so distant
+// platforms stay visible.
+scene.fog = new THREE.FogExp2(0x07080d, 0.006);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 10, 30);
+// Wider FOV (85°) for action-game immersion + closer default rig — world
+// feels inhabited rather than observed from a satellite.
+const camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 14);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -282,14 +287,14 @@ const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || win
 // Mouse Look Camera
 // ============================================
 let cameraYaw = 0;
-let cameraPitch = 0.3; // slight downward angle
-let cameraDistance = isMobile ? 25 : 20;
+let cameraPitch = 0.22; // slight downward — was 0.3, slightly flatter for vertical platforming visibility
+let cameraDistance = isMobile ? 15 : 12;  // was 25/20 — much closer for platformer feel
 let pointerLocked = false;
 
 const MIN_PITCH = -Math.PI / 6;  // -30 degrees
 const MAX_PITCH = Math.PI / 3;    // 60 degrees
-const MIN_DISTANCE = 8;
-const MAX_DISTANCE = 40;
+const MIN_DISTANCE = 6;   // was 8 — allow tighter cinematic zoom
+const MAX_DISTANCE = 28;  // was 40 — cap pulled in so satellite-shot isn't possible
 
 // Desktop: pointer lock for camera (players only)
 let spectatorDragging = false;
@@ -3107,7 +3112,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   resizePostProcessing(window.innerWidth, window.innerHeight);
   if (isMobile) {
-    cameraDistance = (window.innerWidth > window.innerHeight) ? 22 : 25;
+    cameraDistance = (window.innerWidth > window.innerHeight) ? 13 : 16;
   }
 });
 
