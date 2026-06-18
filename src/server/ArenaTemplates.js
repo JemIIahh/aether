@@ -774,6 +774,13 @@ export const TEMPLATES = {
   }
 };
 
+// Player capsule is ~1.4 units across; legacy template platforms were
+// authored at 3-5 units wide which read as fine on paper but felt cramped
+// in-game — players overflow the platform edges and missed jumps because
+// the landing window was too narrow. Bump platform footprints by this
+// factor on every spawn so all templates inherit forgiving landings.
+const PLATFORM_SIZE_BUFF = 1.5;
+
 // Deep-clone and randomize a template so it feels different each time
 export function randomizeTemplate(template) {
   const tmpl = JSON.parse(JSON.stringify(template));
@@ -781,10 +788,18 @@ export function randomizeTemplate(template) {
   for (const entity of tmpl.entities) {
     const props = entity.properties;
 
-    // Nudge positions for non-fixed entities
+    // Larger landing footprint on platforms (X+Z only — keep height as authored)
+    if (entity.type === 'platform' && Array.isArray(entity.size) && entity.size.length === 3) {
+      entity.size[0] *= PLATFORM_SIZE_BUFF;
+      entity.size[2] *= PLATFORM_SIZE_BUFF;
+    }
+
+    // Smaller position nudge — was ±1 unit, made gaps too wide when
+    // combined with already-tight platform spacing. ±0.4 keeps the
+    // template feeling fresh without making jumps un-hittable.
     if (!props?.isCheckpoint && !props?.isHill && !props?.isGoal) {
-      entity.position[0] += (Math.random() - 0.5) * 2;
-      entity.position[2] += (Math.random() - 0.5) * 2;
+      entity.position[0] += (Math.random() - 0.5) * 0.8;
+      entity.position[2] += (Math.random() - 0.5) * 0.8;
     }
 
     // Vary speeds ±30%

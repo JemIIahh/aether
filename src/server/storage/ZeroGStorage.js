@@ -140,9 +140,19 @@ export class ZeroGStorage {
 
 let _instance = null;
 
+// Ring buffer of recent persisted games — surfaces them at /api/storage/recent
+// for the in-game HUD. Server-process-local; persists for the life of the
+// process (transient by design — long-term truth lives on 0G Storage itself).
+const RECENT_CAPACITY = 20;
+const _recent = [];
+
 export function getStorage() {
   if (!_instance) _instance = new ZeroGStorage();
   return _instance;
+}
+
+export function getRecentPersisted() {
+  return _recent.slice(-RECENT_CAPACITY).reverse();
 }
 
 /**
@@ -156,6 +166,20 @@ export async function persistGameResult(arenaId, record) {
   if (!storage.enabled) return null;
   try {
     const rootHash = await storage.uploadGameResult(arenaId, record);
+    if (rootHash) {
+      _recent.push({
+        rootHash,
+        arenaId,
+        gameId: record.id,
+        gameType: record.type,
+        winnerId: record.winnerId || null,
+        playerCount: record.playerCount || 0,
+        endTime: record.endTime || Date.now(),
+      });
+      if (_recent.length > RECENT_CAPACITY * 2) {
+        _recent.splice(0, _recent.length - RECENT_CAPACITY);
+      }
+    }
     return rootHash;
   } catch (err) {
     console.error(`[Storage] persistGameResult failed for ${arenaId}/${record.id}:`, err.message);

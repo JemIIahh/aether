@@ -30,6 +30,7 @@ import { compose, loadCacheFromDisk, getComposerStats } from './Composer.js';
 import { randomizeTemplate } from './ArenaTemplates.js';
 import { ArenaManager } from './ArenaManager.js';
 import { createArenaMiddleware, requireArenaKey } from './arenaMiddleware.js';
+import { getStorage, getRecentPersisted } from './storage/ZeroGStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +69,19 @@ if (process.env.NODE_ENV === 'production') {
 
 // Self-documenting API — any AI agent can discover our API by fetching /skill.md
 app.get('/skill.md', (req, res) => res.sendFile(path.join(__dirname, '../../docs/ARENA-HOST-SKILL.md')));
+
+// 0G Storage — recent persisted games (platform-wide, not arena-scoped).
+// Read-only; safe for public consumption.
+app.get('/api/storage/recent', (req, res) => {
+  const items = getRecentPersisted();
+  const storage = getStorage();
+  res.json({
+    enabled: storage.enabled,
+    indexerUrl: storage.indexerUrl,
+    count: items.length,
+    items,
+  });
+});
 
 // ============================================
 // Global Singletons (shared across all arenas)
