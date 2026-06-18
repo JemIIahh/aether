@@ -3157,7 +3157,7 @@ async function startAuthFlow() {
 
   // Ensure the splash is visible for at least this long, so the brand moment
   // registers even on instant-cache returning users / fast paths.
-  const MIN_SPLASH_MS = 1400;
+  const MIN_SPLASH_MS = 1800;
   const splashStartedAt = performance.now();
   const waitForSplashMin = () => {
     const elapsed = performance.now() - splashStartedAt;
