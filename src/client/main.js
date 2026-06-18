@@ -176,14 +176,16 @@ renderer.toneMappingExposure = 1.3;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.getElementById('game').appendChild(renderer.domElement);
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0x8090a0, 0.8);
+// Lighting — boosted so platforms read clearly against the cyber-noir bg.
+// Ambient lifts shadow areas, hemi adds sky/ground colour contrast in line
+// with the Aether palette (cool top, warm cyber-pink bounce off "floor").
+const ambientLight = new THREE.AmbientLight(0xb8c5d8, 1.05);
 scene.add(ambientLight);
 
-const hemiLight = new THREE.HemisphereLight(0xb0d0ff, 0x404030, 0.6);
+const hemiLight = new THREE.HemisphereLight(0xc8d8ff, 0x4a1f3a, 0.75);
 scene.add(hemiLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.6);
 directionalLight.position.set(50, 100, 50);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
@@ -288,7 +290,7 @@ const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || win
 // ============================================
 let cameraYaw = 0;
 let cameraPitch = 0.22; // slight downward — was 0.3, slightly flatter for vertical platforming visibility
-let cameraDistance = isMobile ? 15 : 12;  // was 25/20 — much closer for platformer feel
+let cameraDistance = isMobile ? 13 : 10;  // tightened further from 15/12 — true platformer rig
 let pointerLocked = false;
 
 const MIN_PITCH = -Math.PI / 6;  // -30 degrees
@@ -3112,7 +3114,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   resizePostProcessing(window.innerWidth, window.innerHeight);
   if (isMobile) {
-    cameraDistance = (window.innerWidth > window.innerHeight) ? 13 : 16;
+    cameraDistance = (window.innerWidth > window.innerHeight) ? 11 : 14;
   }
 });
 
