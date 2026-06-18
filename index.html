@@ -1598,6 +1598,58 @@
       0%, 100% { transform: scale(1); }
       50%      { transform: scale(1.015); }
     }
+
+    /* ============================================================
+       0G integration credit pill — anchored bottom-left in-game
+       ============================================================ */
+    #og-credit {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 145;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 13px 7px 11px;
+      background: rgba(14, 8, 40, 0.78);
+      border: 1px solid var(--border-card);
+      border-radius: 999px;
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-lift);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: opacity 0.2s;
+    }
+    #og-credit .og-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--aether-acid);
+      animation: ogDotPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes ogDotPulse {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%      { opacity: 0.4; transform: scale(0.85); }
+    }
+    #og-credit .og-text { color: var(--text-secondary); }
+    #og-credit .og-text strong {
+      color: var(--aether-acid);
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+    #og-credit .og-net {
+      color: var(--text-muted);
+      padding-left: 8px;
+      border-left: 1px solid var(--border-hairline);
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
   </style>
 </head>
 <body>
@@ -1792,6 +1844,13 @@
     <div id="kill-feed"></div>
   </div>
   <button id="help-btn" title="How to play">? How to Play</button>
+
+  <!-- 0G integration credit — visible in-game so observers see the chain in play -->
+  <div id="og-credit" style="display:none" title="The Aetherist runs on 0G Compute. Bribes settle on 0G Chain.">
+    <span class="og-dot"></span>
+    <span class="og-text">Running on <strong>0G</strong></span>
+    <span class="og-net" id="og-credit-net">Galileo</span>
+  </div>
   <div id="help-overlay" style="display:none">
     <div class="help-content">
       <div class="help-header">

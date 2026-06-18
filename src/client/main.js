@@ -4002,6 +4002,15 @@ async function init() {
   document.getElementById('chat-panel').style.display = 'flex';
   const helpBtn = document.getElementById('help-btn');
   helpBtn.style.display = 'flex';
+
+  // 0G integration credit pill — visible in-game so observers can see the
+  // chain in play even without DevTools. Reflects the active network.
+  const ogCredit = document.getElementById('og-credit');
+  const ogNet = document.getElementById('og-credit-net');
+  if (ogCredit) {
+    if (ogNet) ogNet.textContent = OG_IS_MAINNET ? 'Mainnet' : 'Galileo';
+    ogCredit.style.display = 'inline-flex';
+  }
   helpBtn.addEventListener('click', () => toggleHelpOverlay());
   // Click backdrop to close help overlay (moved from inline onclick)
   document.getElementById('help-overlay').addEventListener('click', (e) => {
