@@ -54,8 +54,11 @@ export function initPostProcessing(rendererRef, sceneRef, cameraRef) {
   outlinePass.hiddenEdgeColor.set('#2a2a4a');
   composer.addPass(outlinePass);
 
-  // 3. Bloom — glow for emissive objects
-  bloomPass = new UnrealBloomPass(size, 0.6, 0.5, 0.3);
+  // 3. Bloom — subtle glow on emissives only. Strength was 0.6 with a
+  // 0.3 threshold: combined with brighter scene lighting that pushed
+  // many surfaces above threshold and made the whole frame feel hazy.
+  // Tightened to a higher threshold + lower strength for sharp edges.
+  bloomPass = new UnrealBloomPass(size, 0.3, 0.4, 0.65);
   composer.addPass(bloomPass);
 
   // 4. Output pass — tone mapping
