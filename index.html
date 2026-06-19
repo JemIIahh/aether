@@ -123,11 +123,6 @@
       min-width: 320px;
       max-width: 480px;
     }
-    .login-container h1 {
-      color: #fff;
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
     .login-subtitle {
       color: rgba(255,255,255,0.5);
       font-size: 14px;
@@ -168,6 +163,22 @@
       cursor: not-allowed;
       transform: none;
     }
+    /* Tertiary text-link CTA used for "Sign out & switch account" */
+    .login-link {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      padding: 4px 8px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: rgba(255,255,255,0.18);
+      text-underline-offset: 3px;
+      align-self: center;
+      margin-top: 4px;
+      transition: color 0.18s;
+    }
+    .login-link:hover { color: rgba(255,255,255,0.7); }
     .login-loader {
       display: flex;
       flex-direction: column;
@@ -316,48 +327,100 @@
       font-size: 14px;
       padding: 20px;
     }
+    /* Goal compass — fixed-size arrow that follows the goal direction so
+       players never have to spin the camera to find their objective. */
+    #goal-compass {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 38px;
+      height: 38px;
+      pointer-events: none;
+      z-index: 180;
+      display: none;
+      filter: drop-shadow(0 0 5px rgba(212,255,0,0.5));
+    }
+    #goal-compass-arrow {
+      position: absolute;
+      inset: 0;
+      background: var(--aether-acid, #d4ff00);
+      clip-path: polygon(50% 0%, 100% 55%, 68% 55%, 68% 100%, 32% 100%, 32% 55%, 0% 55%);
+      animation: compassPulse 1.4s ease-in-out infinite;
+    }
+    #goal-compass-distance {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, 4px);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--aether-acid, #d4ff00);
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 4px rgba(0,0,0,0.85);
+      white-space: nowrap;
+    }
+    @keyframes compassPulse {
+      0%, 100% { opacity: 0.85; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.08); }
+    }
+
+    /* Announcements — slim pills tucked under the top status pill so the
+       center of the play area is never obscured. Max 2 visible at once. */
     #announcements {
       position: fixed;
-      top: 120px;
+      top: 140px;          /* below the game-status pill */
       left: 50%;
       transform: translateX(-50%);
       z-index: 200;
       pointer-events: none;
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      max-width: min(70vw, 520px);
     }
     .announcement {
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(7, 8, 13, 0.78);
       color: white;
-      padding: 15px 30px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      font-size: 18px;
-      font-weight: bold;
-      animation: announceIn 0.3s ease-out forwards;
-      border: 2px solid;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      animation: announceIn 0.25s ease-out forwards;
+      border: 1px solid rgba(255,255,255,0.10);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
     }
     .announcement.agent {
-      border-color: var(--aether-purple);
-      background: linear-gradient(135deg, rgba(168, 85, 247,  0.9), rgba(0, 0, 0, 0.9));
+      border-color: rgba(255, 45, 146, 0.55);
+      color: #ffd0e6;
     }
     .announcement.system {
-      border-color: var(--aether-magenta);
-      background: linear-gradient(135deg, rgba(217, 70, 239,  0.9), rgba(0, 0, 0, 0.9));
+      border-color: rgba(212, 255, 0, 0.45);
+      color: #f4ffb3;
     }
     .announcement.challenge {
-      border-color: var(--aether-mint);
-      background: linear-gradient(135deg, rgba(52, 211, 153,  0.9), rgba(0, 0, 0, 0.9));
+      border-color: rgba(52, 211, 153, 0.55);
+      color: #d6fff0;
     }
     .announcement.fade-out {
-      animation: announceOut 0.5s ease-in forwards;
+      animation: announceOut 0.35s ease-in forwards;
     }
     @keyframes announceIn {
-      from { opacity: 0; transform: scale(0.8) translateY(-20px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     @keyframes announceOut {
-      from { opacity: 1; transform: scale(1); }
-      to { opacity: 0; transform: scale(0.8); }
+      from { opacity: 1; }
+      to { opacity: 0; transform: translateY(-4px); }
     }
     #game-status {
       position: fixed;
@@ -387,22 +450,40 @@
       0%, 100% { box-shadow: 0 0 8px rgba(217, 70, 239, 0.3); }
       50% { box-shadow: 0 0 20px rgba(217, 70, 239, 0.6); }
     }
+    /* Phase label is a tiny chip above the timer — was a chunky 16px heading
+       competing with the number. Now it just labels what the number means. */
     #game-phase {
-      font-size: 16px;
-      font-weight: bold;
-      letter-spacing: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
+      opacity: 0.7;
     }
+    /* Timer numeral is the hero: large, chartreuse, weighty. */
     #game-timer {
-      font-size: 28px;
-      font-weight: bold;
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 1;
       text-align: center;
-      margin-top: 5px;
+      margin-top: 6px;
+      letter-spacing: -0.02em;
+      color: var(--aether-acid, #d4ff00);
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 18px rgba(212, 255, 0, 0.25);
+    }
+    /* Scale-bounce + brief brightness pop on each second tick. */
+    #game-timer.tick { animation: timerTick 0.55s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes timerTick {
+      0%   { transform: scale(1.4); filter: brightness(1.5); opacity: 0.6; }
+      60%  { transform: scale(0.96); filter: brightness(1); opacity: 1; }
+      100% { transform: scale(1); }
     }
     #game-type {
-      font-size: 13px;
-      opacity: 0.8;
-      margin-top: 2px;
+      font-size: 11px;
+      opacity: 0.65;
+      margin-top: 4px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
     }
     /* King of the Hill score overlay */
     #score-overlay {
@@ -1398,15 +1479,15 @@
       font-weight: 500;
     }
 
-    /* In-game phase pill (LOBBY etc.) — flat pink outline, no glow */
+    /* In-game phase pill — quiet card so the chartreuse timer numeral leads */
     #game-status.lobby {
-      border: 2px solid var(--aether-pink);
-      box-shadow: none;
+      border: 1px solid rgba(212, 255, 0, 0.22);
+      box-shadow: 0 0 30px -8px rgba(212, 255, 0, 0.18);
     }
     #game-status.countdown {
       animation: none;
-      box-shadow: none;
-      border: 2px solid var(--aether-acid);
+      border: 1px solid rgba(212, 255, 0, 0.35);
+      box-shadow: 0 0 36px -8px rgba(212, 255, 0, 0.28);
     }
     @keyframes statusPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: none; } }
 
@@ -1677,6 +1758,7 @@
           <span class="btn-spinner"></span> Loading Twitter...
         </button>
         <button id="btn-guest" class="login-btn guest">Play as Guest</button>
+        <button id="btn-signout" class="login-link" style="display:none">Sign out & switch account</button>
       </div>
       <p id="login-status" class="login-status"></p>
       <div class="login-onboarding">
@@ -1751,6 +1833,11 @@
   </div>
   <div id="toast-container"></div>
   <div id="announcements"></div>
+  <!-- Goal compass — DOM arrow pinned to the screen edge pointing at the goal when offscreen. -->
+  <div id="goal-compass" aria-hidden="true">
+    <div id="goal-compass-arrow"></div>
+    <div id="goal-compass-distance">0m</div>
+  </div>
   <div id="game-status" class="lobby">
     <div id="game-phase">LOBBY</div>
     <div id="game-type"></div>

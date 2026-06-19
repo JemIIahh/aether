@@ -774,50 +774,142 @@ export const TEMPLATES = {
   }
 };
 
-// Player capsule is ~1.4 units across; legacy template platforms were
-// authored at 3-5 units wide which read as fine on paper but felt cramped
-// in-game — players overflow the platform edges and missed jumps because
-// the landing window was too narrow. Bump platform footprints by this
-// factor on every spawn so all templates inherit forgiving landings.
-const PLATFORM_SIZE_BUFF = 1.5;
+// Sky presets we cycle through for env variety — must match client SKY_PRESETS
+const SKY_PRESET_POOL = ['starfield', 'sunset', 'storm', 'void', 'aurora'];
 
-// Deep-clone and randomize a template so it feels different each time
-export function randomizeTemplate(template) {
+// HSL hue-rotate a hex color so each spawn paints platforms in a fresh palette
+function rotateHueHex(hex, deltaDeg) {
+  if (typeof hex !== 'string' || !hex.startsWith('#') || hex.length !== 7) return hex;
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s; const l = (max + min) / 2;
+  if (max === min) { h = 0; s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4;
+    }
+    h /= 6;
+  }
+  h = (h + deltaDeg / 360 + 1) % 1;
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const nr = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+  const ng = Math.round(hue2rgb(p, q, h) * 255);
+  const nb = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+  return '#' + [nr, ng, nb].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+// Difficulty curve, indexed by round count (0 = first round of a session).
+// Scales position jitter, obstacle speed variance, and slows/disables the
+// hazard plane on the first couple of rounds so newcomers can learn the
+// jump arc before chaos arrives.
+function getDifficulty(round) {
+  // platformBuff: 1.0 = authored size; >1 = wider/longer landings; gapPull:
+  // 0 = authored gaps; >0 = pull non-anchored platforms toward the origin
+  // (shrinks horizontal distance between blocks) for easier traversal early.
+  if (round <= 0) return { posJitter: 0.0,  decoJitter: 1.0, speedMin: 0.55, speedRange: 0.20, hazardMul: 0.0,  hazardSpeedMul: 0.6,  platformBuff: 1.5,  gapPull: 0.35 };
+  if (round === 1) return { posJitter: 0.25, decoJitter: 1.2, speedMin: 0.60, speedRange: 0.30, hazardMul: 0.5,  hazardSpeedMul: 0.7,  platformBuff: 1.35, gapPull: 0.20 };
+  if (round === 2) return { posJitter: 0.50, decoJitter: 1.3, speedMin: 0.65, speedRange: 0.40, hazardMul: 0.75, hazardSpeedMul: 0.85, platformBuff: 1.20, gapPull: 0.10 };
+  if (round <= 4) return { posJitter: 0.75, decoJitter: 1.4, speedMin: 0.70, speedRange: 0.50, hazardMul: 1.0,  hazardSpeedMul: 1.0,  platformBuff: 1.10, gapPull: 0.0 };
+  return            { posJitter: 1.0,  decoJitter: 1.5, speedMin: 0.75, speedRange: 0.60, hazardMul: 1.0,  hazardSpeedMul: 1.15, platformBuff: 1.0,  gapPull: 0.0 };
+}
+
+// Deep-clone and randomize a template. Difficulty ramps with `opts.round`
+// so the first round is gentle (no position jitter, slow obstacles, soft
+// hazard) and later rounds reach full chaos-arena variance.
+export function randomizeTemplate(template, opts = {}) {
   const tmpl = JSON.parse(JSON.stringify(template));
+  const round = opts.round ?? 99;
+  const d = getDifficulty(round);
+
+  const hueShift = (Math.random() - 0.5) * 120; // ±60° hue rotation, shared
 
   for (const entity of tmpl.entities) {
     const props = entity.properties;
 
-    // Larger landing footprint on platforms (X+Z only — keep height as authored)
-    if (entity.type === 'platform' && Array.isArray(entity.size) && entity.size.length === 3) {
-      entity.size[0] *= PLATFORM_SIZE_BUFF;
-      entity.size[2] *= PLATFORM_SIZE_BUFF;
+    // Bigger landing footprints on platforms during easy rounds — only X/Z
+    // (width/depth), height stays as authored so vertical gaps don't change.
+    if (d.platformBuff !== 1.0 && entity.type === 'platform' && Array.isArray(entity.size) && entity.size.length === 3) {
+      entity.size[0] *= d.platformBuff;
+      entity.size[2] *= d.platformBuff;
     }
 
-    // Smaller position nudge — was ±1 unit, made gaps too wide when
-    // combined with already-tight platform spacing. ±0.4 keeps the
-    // template feeling fresh without making jumps un-hittable.
     if (!props?.isCheckpoint && !props?.isHill && !props?.isGoal) {
-      entity.position[0] += (Math.random() - 0.5) * 0.8;
-      entity.position[2] += (Math.random() - 0.5) * 0.8;
+      // Pull non-anchored platforms toward origin to shorten horizontal gaps
+      // on easier rounds. Anchored entities (goal/checkpoints/hills) stay put
+      // so route geometry / scoring still works.
+      if (d.gapPull > 0) {
+        entity.position[0] *= (1 - d.gapPull);
+        entity.position[2] *= (1 - d.gapPull);
+      }
+      const jitter = entity.type === 'decoration' ? d.decoJitter : d.posJitter;
+      entity.position[0] += (Math.random() - 0.5) * jitter;
+      entity.position[2] += (Math.random() - 0.5) * jitter;
     }
 
-    // Vary speeds ±30%
+    // Hue-shift every colored entity so each spawn reads as a new palette
+    if (props?.color) {
+      props.color = rotateHueHex(props.color, hueShift);
+    }
+
+    // Speed variance scales with difficulty — round 0 is much slower
     if (props?.speed) {
-      props.speed *= 0.7 + Math.random() * 0.6;
+      props.speed *= d.speedMin + Math.random() * d.speedRange;
     }
     if (props?.conveyorSpeed) {
-      props.conveyorSpeed *= 0.7 + Math.random() * 0.6;
+      props.conveyorSpeed *= d.speedMin + Math.random() * d.speedRange;
     }
 
     if (props?.breakDelay) {
+      // Easier rounds give players more time before platforms break
+      const ease = round <= 1 ? 200 : 0;
       const jitter = Math.floor((Math.random() - 0.5) * 200);
-      props.breakDelay = Math.max(100, props.breakDelay + jitter);
+      props.breakDelay = Math.max(100, props.breakDelay + jitter + ease);
     }
   }
 
-  if (tmpl.hazardPlane?.riseSpeed) {
-    tmpl.hazardPlane.riseSpeed *= 0.8 + Math.random() * 0.4;
+  // Re-tint environment so background reads as a new scene each round.
+  if (tmpl.environment) {
+    if (Math.random() < 0.7) {
+      tmpl.environment.skyPreset = SKY_PRESET_POOL[Math.floor(Math.random() * SKY_PRESET_POOL.length)];
+    }
+    if (tmpl.environment.skyColor) {
+      tmpl.environment.skyColor = rotateHueHex(tmpl.environment.skyColor, hueShift * 0.6);
+    }
+    if (tmpl.environment.fogColor) {
+      tmpl.environment.fogColor = rotateHueHex(tmpl.environment.fogColor, hueShift * 0.6);
+    }
+    if (tmpl.environment.fogDensity) {
+      tmpl.environment.fogDensity *= 0.75 + Math.random() * 0.5;
+    }
+  }
+
+  // Hazard plane (rising lava/water): disabled round 0, soft early rounds
+  if (tmpl.hazardPlane) {
+    if (d.hazardMul === 0) {
+      delete tmpl.hazardPlane;
+    } else {
+      if (tmpl.hazardPlane.riseSpeed) {
+        tmpl.hazardPlane.riseSpeed *= d.hazardSpeedMul * (0.9 + Math.random() * 0.2);
+      }
+      if (typeof tmpl.hazardPlane.startHeight === 'number') {
+        // Lower starting height on easier rounds = more reaction time
+        tmpl.hazardPlane.startHeight -= (1 - d.hazardMul) * 4;
+      }
+    }
   }
 
   return tmpl;

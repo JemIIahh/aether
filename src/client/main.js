@@ -9,7 +9,7 @@ import { createEntityToonMaterial, createGroundToonMaterial, getEntityColor, set
 import { initPostProcessing, renderFrame, resizePostProcessing, updateOutlineObjects } from './PostProcessing.js';
 import { createLavaShaderMaterial, createWaterShaderMaterial, createWindShaderMaterial, registerShaderMaterial, updateShaderTime, registerConveyorMaterial, updateConveyorScrolls } from './SurfaceShaders.js';
 import { createPlayerCharacter, createRemotePlayerCharacter, updateSquashStretch } from './PlayerVisuals.js';
-import { createSkyDome, updateSkyColors, initParticles, updateEnvironmentEffects, selectParticleType } from './EnvironmentEffects.js';
+import { createSkyDome, updateSkyColors, initParticles, updateEnvironmentEffects, selectParticleType, createDistantScenery, updateDistantScenery, updateSceneryPalette } from './EnvironmentEffects.js';
 import { Client } from 'colyseus.js';
 import {
   initPrivy, handleOAuthCallback, exchangeForBackendToken, ensureEmbeddedWallet,
@@ -162,10 +162,10 @@ scene.background = new THREE.Color(0x2a2a4e);
 // platforms stay visible.
 scene.fog = new THREE.FogExp2(0x07080d, 0.006);
 
-// FOV 78° — wider than legacy 75 for immersion but tighter than 85 to
-// reduce perspective distortion on jump depth perception.
-const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 8, 18);
+// FOV 70° — confident third-person feel; wider FOVs (78-85) shrank the
+// player on screen and exaggerated depth, which made jumps hard to read.
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 12);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -176,20 +176,36 @@ renderer.toneMappingExposure = 1.3;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.getElementById('game').appendChild(renderer.domElement);
 
-// Lighting — modest lift over original so platforms read against the
-// cyber-noir bg without pushing surfaces past the bloom threshold.
-const ambientLight = new THREE.AmbientLight(0x9aa6b8, 0.9);
+// Three-light setup tuned bright. Earlier I dropped ambient to 0.55 chasing
+// "cinematic moody" and the ground went muddy + monoliths went pitch black.
+// Brought ambient back up and kept fill/rim so characters still pop.
+const ambientLight = new THREE.AmbientLight(0xc0c8d8, 0.85);
 scene.add(ambientLight);
 
-const hemiLight = new THREE.HemisphereLight(0xb0c4e0, 0x3a1828, 0.65);
+const hemiLight = new THREE.HemisphereLight(0xb0c4e0, 0x3a1828, 0.8);
 scene.add(hemiLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.3);
+// Key — warm white directional, casts shadows
+const directionalLight = new THREE.DirectionalLight(0xfff3d4, 1.5);
 directionalLight.position.set(50, 100, 50);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.bias = -0.0005;
+directionalLight.shadow.radius = 4;
 scene.add(directionalLight);
+
+// Fill — cool cyan from the opposite side. Lifts the shadow side of
+// characters so they don't go pitch black against the void bg.
+const fillLight = new THREE.DirectionalLight(0x6fb5ff, 0.7);
+fillLight.position.set(-40, 35, -30);
+scene.add(fillLight);
+
+// Rim — magenta back-light from above-behind, picks out silhouettes against
+// the dark sky and ties to the chartreuse/pink HUD palette.
+const rimLight = new THREE.DirectionalLight(0xff2d92, 0.55);
+rimLight.position.set(0, 60, -60);
+scene.add(rimLight);
 
 // Ground plane
 const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
@@ -205,6 +221,9 @@ scene.add(gridHelper);
 
 // Sky gradient dome
 createSkyDome(scene);
+
+// Distant scenery ring so the background reads as a place, not a void
+createDistantScenery(scene);
 
 // Post-processing pipeline (outlines, bloom, FXAA)
 initPostProcessing(renderer, scene, camera);
@@ -276,6 +295,9 @@ function applyEnvironment(env) {
   const pType = selectParticleType(currentFloorType, env);
   initParticles(scene, pType);
 
+  // Repaint the distant scenery so it harmonizes with the new arena palette
+  if (env.skyPreset) updateSceneryPalette(env.skyPreset);
+
   console.log('[Environment] Updated');
 }
 
@@ -288,8 +310,15 @@ const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || win
 // Mouse Look Camera
 // ============================================
 let cameraYaw = 0;
-let cameraPitch = 0.26; // slight downward — eased back from 0.22 so jump arcs are more readable
-let cameraDistance = isMobile ? 18 : 14;  // middle ground — was 10 (too tight, jumps hard to gauge) and 20 (too far)
+// Higher pitch (~20°) puts more of the upcoming path in view so the player
+// can see the next platform under them while jumping.
+let cameraPitch = 0.35;
+// Desired follow distance (player taste). The raycaster pull-back below
+// shortens this on the fly when a platform / obstacle would clip the camera.
+let cameraDistance = isMobile ? 11.5 : 8.5;
+// Effective distance after collision pull-back — eased over frames so we
+// don't snap in/out when grazing edges.
+let _cameraEffectiveDist = cameraDistance;
 let pointerLocked = false;
 
 const MIN_PITCH = -Math.PI / 6;  // -30 degrees
@@ -439,8 +468,8 @@ function setupMobileControls() {
       #leaderboard-panel { width: 90vw; max-width: 320px; }
       #bribe-panel { bottom: 10px; right: auto; left: 50%; transform: translateX(-50%); }
       .bribe-btn { padding: 8px 16px; font-size: 12px; }
-      .announcement { font-size: 14px; padding: 10px 20px; }
-      #announcements { top: 100px; }
+      .announcement { font-size: 11px; padding: 5px 12px; }
+      #announcements { top: 120px; max-width: 80vw; }
       #chat-toggle-btn {
         display: block;
         position: fixed; bottom: 10px; left: 10px;
@@ -473,8 +502,8 @@ function setupMobileControls() {
         bottom: 80px !important; left: 10px !important;
       }
       #chat-messages { max-height: 100px !important; }
-      #announcements { top: 70px !important; }
-      .announcement { font-size: 12px !important; padding: 6px 14px !important; }
+      #announcements { top: 80px !important; max-width: 75vw !important; }
+      .announcement { font-size: 10px !important; padding: 4px 10px !important; }
       #bribe-panel { bottom: 80px !important; }
       #chat-toggle-btn { bottom: 80px !important; left: 10px !important; }
     }
@@ -666,6 +695,18 @@ const spectatorPos = new THREE.Vector3(0, 20, 0);
 const SPEC_FLY_SPEED = 30;
 const SPEC_FAST_SPEED = 60;
 
+// Reusable scratch vectors for the smooth follow camera (avoid GC churn)
+const _camDesired = new THREE.Vector3();
+const _camLookTarget = new THREE.Vector3();
+const _camLookSmooth = new THREE.Vector3();
+const _camAnchor = new THREE.Vector3();   // pivot point (player + head offset)
+const _camDir = new THREE.Vector3();       // unit vector from anchor → desired
+const _camRaycaster = new THREE.Raycaster();
+const _camHitTargets = [];                  // reused array of collidable meshes
+const CAM_PADDING = 0.6;                   // never let camera kiss the wall
+const CAM_MIN_DISTANCE = 3.0;              // floor so the camera can't go inside the player
+let _camInitialized = false;
+
 function updateCamera() {
   if (isInSpectatorMode()) {
     updateSpectatorCamera();
@@ -676,18 +717,62 @@ function updateCamera() {
 
   const target = playerMesh.position;
 
-  // Spherical coordinates around player
-  const offsetX = Math.sin(cameraYaw) * Math.cos(cameraPitch) * cameraDistance;
-  const offsetY = Math.sin(cameraPitch) * cameraDistance;
-  const offsetZ = Math.cos(cameraYaw) * Math.cos(cameraPitch) * cameraDistance;
+  // Anchor at the head — we want the camera arm to pivot here, and we
+  // raycast outward from this point so we catch walls in the upper half too.
+  _camAnchor.set(target.x, target.y + 1.4, target.z);
+
+  // Spherical orbit around the player
+  const offsetX = Math.sin(cameraYaw) * Math.cos(cameraPitch);
+  const offsetY = Math.sin(cameraPitch);
+  const offsetZ = Math.cos(cameraYaw) * Math.cos(cameraPitch);
+  _camDir.set(offsetX, offsetY, offsetZ);
+
+  // --- Collision pull-back: cast a ray from the anchor toward the desired
+  // camera position. If we hit any platform/obstacle, pull the camera in to
+  // just before that hit (CAM_PADDING units back). Ease the change so a
+  // momentary clip doesn't yank the camera in/out.
+  _camHitTargets.length = 0;
+  for (const [id, mesh] of entityMeshes) {
+    const ent = state.entities.get(id);
+    const t = ent?.type;
+    if (t === 'platform' || t === 'obstacle' || t === 'wall' || t === 'prefab') {
+      _camHitTargets.push(mesh);
+    }
+  }
+  _camRaycaster.set(_camAnchor, _camDir);
+  _camRaycaster.far = cameraDistance + 0.1;
+  const hits = _camRaycaster.intersectObjects(_camHitTargets, true);
+  let allowed = cameraDistance;
+  if (hits.length > 0) {
+    allowed = Math.max(CAM_MIN_DISTANCE, hits[0].distance - CAM_PADDING);
+  }
+  // Pull in fast when we'd clip, ease out slowly when the way clears, so the
+  // camera doesn't pop the moment a wall scrolls past behind the player.
+  const easeIn = 0.5;
+  const easeOut = 0.08;
+  _cameraEffectiveDist += (allowed - _cameraEffectiveDist) * (allowed < _cameraEffectiveDist ? easeIn : easeOut);
 
   updateCameraShake();
-  camera.position.set(
-    target.x + offsetX + cameraShake.offset.x,
-    target.y + offsetY + 2 + cameraShake.offset.y,
-    target.z + offsetZ + cameraShake.offset.z
+  _camDesired.set(
+    target.x + offsetX * _cameraEffectiveDist + cameraShake.offset.x,
+    target.y + offsetY * _cameraEffectiveDist + 2 + cameraShake.offset.y,
+    target.z + offsetZ * _cameraEffectiveDist + cameraShake.offset.z,
   );
-  camera.lookAt(target.x, target.y + 1, target.z);
+
+  // Smooth follow — lerp toward desired so vertical bobs / sudden teleports
+  // feel cinematic instead of snapping. Snap on the first frame so the
+  // camera doesn't sweep in from origin at session start.
+  const followLerp = 0.18;
+  _camLookTarget.set(target.x, target.y + 1.2, target.z);
+  if (!_camInitialized) {
+    camera.position.copy(_camDesired);
+    _camLookSmooth.copy(_camLookTarget);
+    _camInitialized = true;
+  } else {
+    camera.position.lerp(_camDesired, followLerp);
+    _camLookSmooth.lerp(_camLookTarget, followLerp);
+  }
+  camera.lookAt(_camLookSmooth);
 }
 
 function updateSpectatorCamera() {
@@ -950,7 +1035,8 @@ function createEntityMesh(entity) {
     mesh.add(glow);
   }
 
-  // Goal triggers get a glow too
+  // Goal triggers get a glow + a tall light beam so the goal is visible from
+  // anywhere in the arena — fixes "I don't know where to go" for new players.
   if (entity.type === 'trigger' && props.isGoal) {
     const [sx, sy, sz] = entity.size || [3, 3, 3];
     const goalGlow = new THREE.Mesh(
@@ -958,12 +1044,48 @@ function createEntityMesh(entity) {
       new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.18,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
     );
     mesh.add(goalGlow);
+
+    // Vertical light beam — wide soft cylinder fading toward the top
+    const beamHeight = 60;
+    const beamGeom = new THREE.CylinderGeometry(0.4, 1.4, beamHeight, 16, 1, true);
+    const beamMat = new THREE.ShaderMaterial({
+      uniforms: {
+        beamColor: { value: new THREE.Color(color) },
+        time: { value: 0 },
+      },
+      vertexShader: /* glsl */ `
+        varying float vY;
+        void main() {
+          vY = uv.y;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 beamColor;
+        uniform float time;
+        varying float vY;
+        void main() {
+          float fade = pow(1.0 - vY, 1.6);
+          float shimmer = 0.7 + 0.3 * sin(time * 2.0 + vY * 8.0);
+          gl_FragColor = vec4(beamColor, fade * shimmer * 0.55);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const beam = new THREE.Mesh(beamGeom, beamMat);
+    beam.position.y = beamHeight / 2;
+    beam.userData.isGoalBeam = true;
+    mesh.add(beam);
+    mesh.userData.goalBeamMat = beamMat;
   }
 
   return mesh;
@@ -1744,6 +1866,24 @@ function updatePlayer(delta) {
     playerDie();
   }
 
+  // Landing dust — fresh airborne → grounded transition
+  if (!_wasGroundedLastFrame && isGrounded && _lastFallSpeed < -8) {
+    spawnParticles(playerMesh.position, '#cfd8dc', Math.min(18, Math.floor(Math.abs(_lastFallSpeed) * 0.6)), 3);
+    spawnParticles(playerMesh.position, '#ffffff', 6, 2);
+    triggerCameraShake(0.12, 110);
+  }
+  _wasGroundedLastFrame = isGrounded;
+  _lastFallSpeed = playerVelocity.y;
+
+  // Sprint FOV punch — small FOV bump when sprinting + moving, restores when not.
+  // Subtle (4°) so it reads as energy without inducing motion sickness.
+  const isSprinting = keys.shift && hasInput && isGrounded;
+  const targetFov = isSprinting ? 76 : 70;
+  if (Math.abs(camera.fov - targetFov) > 0.01) {
+    camera.fov += (targetFov - camera.fov) * Math.min(1, delta * 6);
+    camera.updateProjectionMatrix();
+  }
+
   updateCamera();
 
   // Send position to server (throttled)
@@ -1755,6 +1895,73 @@ function updatePlayer(delta) {
       velocity: playerVelocity.toArray()
     });
   }
+}
+
+// Frame-to-frame state for landing-detection + FOV punch
+let _wasGroundedLastFrame = true;
+let _lastFallSpeed = 0;
+
+// Goal compass — finds the goal trigger entity each frame, projects its
+// world position into screen space, and pins a DOM arrow to either the
+// projected point (off-screen) or hides it (on-screen).
+const _goalProj = new THREE.Vector3();
+function updateGoalCompass() {
+  const compass = document.getElementById('goal-compass');
+  if (!compass || !playerMesh) return;
+  const phase = state.gameState?.phase;
+  // Only useful while a game is actively being played
+  if (phase !== 'playing' && phase !== 'countdown') {
+    if (compass.style.display !== 'none') compass.style.display = 'none';
+    return;
+  }
+
+  let goalMesh = null;
+  for (const [id, mesh] of entityMeshes) {
+    const ent = state.entities.get(id);
+    if (ent?.properties?.isGoal) { goalMesh = mesh; break; }
+  }
+  if (!goalMesh) {
+    if (compass.style.display !== 'none') compass.style.display = 'none';
+    return;
+  }
+
+  _goalProj.copy(goalMesh.position).project(camera);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  // Within NDC viewport AND in front of camera → goal is visible, hide arrow
+  const visible = _goalProj.x >= -0.95 && _goalProj.x <= 0.95 && _goalProj.y >= -0.95 && _goalProj.y <= 0.95 && _goalProj.z > 0 && _goalProj.z < 1;
+  if (visible) {
+    if (compass.style.display !== 'none') compass.style.display = 'none';
+    return;
+  }
+  compass.style.display = 'block';
+
+  // Compute screen-space direction from center to goal, clamp to edge of
+  // a centered ellipse so the arrow rides the viewport border.
+  let sx = _goalProj.x;
+  let sy = _goalProj.y;
+  if (_goalProj.z >= 1) { sx = -sx; sy = -sy; } // behind camera → flip
+  const len = Math.hypot(sx, sy) || 1;
+  // Larger margin so the arrow never crashes into the top status pill (which
+  // takes ~130px of the upper viewport) or the bottom keybind row.
+  const margin = 140;
+  const radiusX = (w / 2) - margin;
+  const radiusY = (h / 2) - margin;
+  const px = (w / 2) + (sx / len) * radiusX;
+  const py = (h / 2) - (sy / len) * radiusY;
+  compass.style.left = `${px}px`;
+  compass.style.top = `${py}px`;
+
+  // Rotate arrow to point from center toward goal direction
+  const arrow = document.getElementById('goal-compass-arrow');
+  if (arrow) {
+    const angle = Math.atan2(-sy, sx) - Math.PI / 2;
+    arrow.style.transform = `rotate(${angle}rad)`;
+  }
+
+  const dist = goalMesh.position.distanceTo(playerMesh.position);
+  const distEl = document.getElementById('goal-compass-distance');
+  if (distEl) distEl.textContent = `${Math.round(dist)}m`;
 }
 
 // ============================================
@@ -2320,7 +2527,9 @@ function showAfkKickedScreen() {
   document.body.appendChild(overlay);
 }
 
-const MAX_VISIBLE_ANNOUNCEMENTS = 3;
+// Slim notifications under the top status pill — keep the count low so the
+// stack never covers the active platform area.
+const MAX_VISIBLE_ANNOUNCEMENTS = 2;
 
 function enforceAnnouncementLimit(container) {
   while (container.children.length >= MAX_VISIBLE_ANNOUNCEMENTS) {
@@ -2346,14 +2555,16 @@ function showAnnouncement(announcement) {
 
   state.announcements.set(announcement.id, true);
 
-  const duration = Math.min(announcement.duration || 5000, 4000);
+  // Shorter dwell — keeps the upper strip moving so old text doesn't linger
+  // over gameplay. Cap at 2.5s; events worth keeping (chat log) persist there.
+  const duration = Math.min(announcement.duration || 2500, 2500);
   setTimeout(() => {
     div.classList.add('fade-out');
     setTimeout(() => {
       div.remove();
       state.announcements.delete(announcement.id);
-    }, 500);
-  }, duration - 500);
+    }, 350);
+  }, Math.max(400, duration - 350));
 
   console.log(`[Announcement] ${announcement.type}: ${announcement.text}`);
 }
@@ -2403,23 +2614,38 @@ function updateGameStateUI() {
   if (state.gameState.phase === 'lobby') {
     statusEl.style.display = 'block';
     statusEl.className = 'lobby';
-    phaseEl.textContent = 'LOBBY';
     if (state.lobbyCountdownTarget) {
       const now = Date.now();
       if (state.lobbyReadyAt && now < state.lobbyReadyAt) {
-        // Phase 1: warm-up countdown (accurate)
+        // Warm-up countdown — show JUST the numeral. Tiny label above tells you
+        // what it means. Animated tick on each second change for game feel.
         const remaining = Math.max(0, Math.ceil((state.lobbyReadyAt - now) / 1000));
-        typeEl.textContent = 'Get ready!';
-        timerEl.textContent = remaining > 0 ? `Starting in ${remaining}s` : '';
-        timerEl.style.color = '#f39c12';
+        phaseEl.textContent = 'STARTING';
+        typeEl.textContent = '';
+        if (remaining > 0) {
+          const next = String(remaining);
+          if (timerEl.textContent !== next) {
+            timerEl.textContent = next;
+            timerEl.classList.remove('tick');
+            void timerEl.offsetWidth; // force restart of the keyframe
+            timerEl.classList.add('tick');
+          }
+        } else {
+          timerEl.textContent = 'GO';
+        }
+        timerEl.style.color = '';
       } else {
-        // Phase 2: waiting for agent (no misleading countdown)
-        typeEl.textContent = 'The Aetherist choosing...';
+        // Waiting for the agent to pick — keep it quiet, no fake countdown.
+        phaseEl.textContent = 'LOBBY';
+        typeEl.textContent = 'The Aetherist is choosing...';
         timerEl.textContent = '';
+        timerEl.classList.remove('tick');
       }
     } else {
+      phaseEl.textContent = 'LOBBY';
       typeEl.textContent = 'Waiting for players...';
       timerEl.textContent = '';
+      timerEl.classList.remove('tick');
     }
     return;
   }
@@ -3073,6 +3299,9 @@ function animate() {
       if (mesh.material?.emissiveIntensity !== undefined) {
         mesh.material.emissiveIntensity = 0.5 + Math.sin(time * 3) * 0.25;
       }
+      if (mesh.userData.goalBeamMat) {
+        mesh.userData.goalBeamMat.uniforms.time.value = time;
+      }
     }
   }
 
@@ -3087,7 +3316,9 @@ function animate() {
   updateShaderTime(time);
   updateConveyorScrolls(delta);
   updateEnvironmentEffects(delta, camera.position);
+  updateDistantScenery(delta);
   updateParticles();
+  updateGoalCompass();
   updateOutlineObjects(entityMeshes, groupParents, playerMesh, remotePlayers);
   updateChatBubbles();
 
@@ -3207,20 +3438,29 @@ async function startAuthFlow() {
     twitterBtn.style.display = 'none';
   }
 
-  // --- Fast path: returning user with cached token ---
+  // --- Returning user with cached token: surface a "Continue as X" button
+  // on the splash instead of silently dropping them into the arena. The user
+  // expects an intentional click before play starts.
   const existingToken = getToken();
+  let cachedUser = null;
+  const signoutBtn = document.getElementById('btn-signout');
   if (existingToken) {
     try {
       const res = await fetch(`${API_URL}/api/me`, {
         headers: { Authorization: `Bearer ${existingToken}` }
       });
       if (res.ok) {
-        const user = await res.json();
-        await hideLoginScreen();
-        return { token: existingToken, user };
+        cachedUser = await res.json();
+        if (continueBtn) {
+          const displayName = cachedUser.name || cachedUser.handle || 'Player';
+          continueBtn.textContent = `Continue as ${displayName}`;
+          continueBtn.style.display = 'block';
+        }
+        if (signoutBtn) signoutBtn.style.display = 'block';
+      } else {
+        localStorage.removeItem('game:token');
       }
-    } catch { /* token invalid or server unreachable */ }
-    localStorage.removeItem('game:token');
+    } catch { /* server unreachable — leave the buttons visible */ }
   }
 
   // --- OAuth callback check (returning from Twitter redirect) ---
@@ -3295,6 +3535,13 @@ async function startAuthFlow() {
       } catch (e) {
         setStatus('Login failed: ' + (e.message || 'Unknown error'));
       }
+    });
+
+    signoutBtn?.addEventListener('click', () => {
+      localStorage.removeItem('game:token');
+      if (continueBtn) continueBtn.style.display = 'none';
+      if (signoutBtn) signoutBtn.style.display = 'none';
+      setStatus('Signed out. Pick how to log in.');
     });
 
     document.getElementById('btn-guest').addEventListener('click', async () => {

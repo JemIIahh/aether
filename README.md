@@ -18,6 +18,20 @@ Most "AI in a game" projects ship an LLM in a box and call the chain when someon
 
 That's the headline: **an AI game master that lives on the AI Layer-1, is paid in the AI Layer-1's token, and is computed on the AI Layer-1's compute network.**
 
+### 0G surface — what to verify
+
+| Layer | Library | Where in code | What it does |
+|---|---|---|---|
+| **0G Chain** | `viem` + `src/shared/chains.js` | `src/server/blockchain/ZeroGChainInterface.js` | Verifies player bribes (native `0G` transfers) against Galileo testnet `16602` |
+| **0G Compute** | `@0glabs/0g-serving-broker@0.7.8` | `agent-runner-0g.js` + `scripts/og-fund-ledger.js` | The Aetherist signs each inference request; broker debits the wallet ledger per call |
+| **0G Storage** | `@0gfoundation/0g-ts-sdk@1.2.8` | `src/server/storage/ZeroGStorage.js` (called from `MiniGame.js`) | Uploads game-result blobs to indexer-storage-testnet-turbo; returns rootHash |
+| **Wallet onboarding** | `@privy-io/react-auth@3.13.1` | `src/client/PrivyBridge.jsx` + `src/client/auth.js` | Twitter OAuth + Guest mode; auto-creates embedded wallet on the 0G chain |
+
+Smoke tests judges can run directly:
+- `npm run bribe:e2e` — sends a bribe tx on 0G testnet, server verifies via viem
+- `npm run storage:test` — uploads a blob to 0G Storage, prints rootHash
+- `npm run aetherist:fund` then `npm run aetherist` — boots The Aetherist on 0G Compute
+
 ---
 
 ## What The Aetherist does
@@ -67,7 +81,7 @@ npm install
 npm run dev
 ```
 
-- Client at `localhost:5173`, server at `localhost:3000`
+- Client at `localhost:5174`, server at `localhost:3000`
 - Click **"Play as Guest"** — no database, no Privy credentials, no 0G tokens needed
 - Postgres is optional; without it the server uses in-memory storage
 
@@ -137,11 +151,16 @@ Game Server (Express + Colyseus, port 3000)
 | `src/server/WorldState.js` | Entities, players, leaderboard, physics |
 | `src/server/AgentLoop.js` | The Aetherist's invocation scheduler (drama scoring) |
 | `src/server/Composer.js` | Compose recipes + disk cache |
-| `src/server/blockchain/ZeroGChainInterface.js` | 0G Chain bribe verification |
+| `src/server/blockchain/ZeroGChainInterface.js` | 0G Chain bribe verification (viem) |
+| `src/server/storage/ZeroGStorage.js` | 0G Storage uploads (game results, replays) |
 | `src/shared/chains.js` | Env-driven 0G chain config (testnet / mainnet) |
 | `src/client/main.js` | Three.js renderer, physics, controls, wallet UI |
 | `src/client/PrivyBridge.jsx` | Privy embedded wallet on 0G |
-| `agent-runner-host.js` | Reference agent (external Anthropic — pre-0G-Compute) |
+| `agent-runner-0g.js` | **The Aetherist** — long-running agent loop on 0G Compute |
+| `scripts/og-fund-ledger.js` | One-time broker-ledger funding helper |
+| `scripts/og-bribe-e2e.js` | End-to-end on-chain bribe smoke test |
+| `scripts/og-storage-test.js` | 0G Storage upload smoke test |
+| `agent-runner-host.js` | Reference external-agent loop (pre-0G-Compute, kept for parity) |
 | `docs/ARENA-HOST-SKILL.md` | External agent API docs (served at `/skill.md`) |
 | `config/aetherist/SOUL.md` | Agent personality + style guide |
 
@@ -151,10 +170,10 @@ Game Server (Express + Colyseus, port 3000)
 
 Aligned to Zero Cup cutoffs:
 
-- ✅ **R1 · Group Stage (Jun 23)** — playable build on 0G, wallet flow live
-- 🛠 **R2 · Round of 32 (Jun 28)** — The Aetherist's reasoning on 0G Compute *(integration code shipped — needs a funded broker ledger to demo)*
-- ⏳ **R3 · Round of 16 (Jul 4)** — Agent memory + arena replays on 0G Storage
-- ⏳ **R4 · Quarter Finals (Jul 8)** — Polish, demo video, public landing
+- ✅ **R1 · Group Stage (Jun 23)** — playable build on 0G, Privy wallet flow live, bribes verified by `viem` against 0G testnet
+- ✅ **R2 · Round of 32 (Jun 28)** — The Aetherist's reasoning on **0G Compute** (signed inference via `@0glabs/0g-serving-broker`, ledger-funded)
+- ✅ **R3 · Round of 16 (Jul 4)** — Game results uploaded to **0G Storage** via `@0gfoundation/0g-ts-sdk` (rootHashes returned per game)
+- 🛠 **R4 · Quarter Finals (Jul 8)** — Polish pass (camera, lighting, lobby UI), demo video, public deployment
 - 🏆 **R5–6 · Semi Finals + Finals (Jul 12–19)** — Community vote
 
 ---

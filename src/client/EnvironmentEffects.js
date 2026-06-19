@@ -13,8 +13,8 @@ let particleType = 'dust';
 let skyDome = null;
 let starField = null;
 
-const PARTICLE_COUNT = 250;
-const PARTICLE_SPREAD = 60;
+const PARTICLE_COUNT = 600;
+const PARTICLE_SPREAD = 80;
 
 // ─── Sky Dome ───────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ export function createSkyDome(scene) {
 }
 
 function createStarField(scene) {
-  const count = 300;
+  const count = 900;
   const positions = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
 
@@ -314,6 +314,126 @@ export function updateEnvironmentEffects(delta, cameraPosition) {
   if (starField?.visible) {
     starField.rotation.y += delta * 0.002;
   }
+}
+
+// ─── Distant scenery ring ──────────────────────────────────
+// Far-off monoliths placed in a wide ring beyond gameplay so the world
+// reads as "inside a place" instead of an empty void backdrop. Cheap:
+// instanced boxes, no shadows, fog-faded.
+
+let sceneryGroup = null;
+
+export function createDistantScenery(scene) {
+  disposeDistantScenery(scene);
+
+  const group = new THREE.Group();
+  const monolithCount = 28;
+  const innerRadius = 80;
+  const outerRadius = 180;
+
+  for (let i = 0; i < monolithCount; i++) {
+    const angle = (i / monolithCount) * Math.PI * 2 + Math.random() * 0.15;
+    const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
+    const height = 14 + Math.random() * 38;
+    const width = 5 + Math.random() * 9;
+    const depth = 5 + Math.random() * 9;
+
+    const geom = new THREE.BoxGeometry(width, height, depth);
+    const hue = 0.55 + Math.random() * 0.25; // cool teal → violet band
+    // Mid-lightness — earlier 0.18 read as pitch-black silhouettes against the
+    // sky and made the horizon feel sinister rather than atmospheric.
+    const color = new THREE.Color().setHSL(hue, 0.45, 0.32 + Math.random() * 0.14);
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.8,
+      metalness: 0.1,
+      emissive: color.clone().multiplyScalar(0.35),
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(
+      Math.cos(angle) * radius,
+      height / 2 - 4,
+      Math.sin(angle) * radius,
+    );
+    mesh.rotation.y = Math.random() * Math.PI;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    group.add(mesh);
+  }
+
+  // Floating accent crystals — slow drift gives the scene life
+  for (let i = 0; i < 12; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 60 + Math.random() * 90;
+    const y = 18 + Math.random() * 50;
+    const size = 1.5 + Math.random() * 2.5;
+    const color = new THREE.Color().setHSL(0.5 + Math.random() * 0.35, 0.9, 0.6);
+    const geom = new THREE.OctahedronGeometry(size, 0);
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.4,
+      roughness: 0.25,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+    mesh.userData.bobPhase = Math.random() * Math.PI * 2;
+    mesh.userData.bobAmp = 0.6 + Math.random() * 1.2;
+    mesh.userData.baseY = y;
+    mesh.userData.spinSpeed = (Math.random() - 0.5) * 0.4;
+    group.add(mesh);
+  }
+
+  sceneryGroup = group;
+  scene.add(group);
+  return group;
+}
+
+export function disposeDistantScenery(scene) {
+  if (!sceneryGroup) return;
+  scene.remove(sceneryGroup);
+  sceneryGroup.traverse((obj) => {
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) obj.material.dispose();
+  });
+  sceneryGroup = null;
+}
+
+// Recolor scenery to harmonize with each arena's palette
+export function updateSceneryPalette(skyPreset) {
+  if (!sceneryGroup) return;
+  const palettes = {
+    starfield: { mono: [0.6, 0.4, 0.18], glow: [0.6, 0.85, 0.6] },
+    sunset:    { mono: [0.06, 0.55, 0.25], glow: [0.08, 0.9, 0.6] },
+    storm:     { mono: [0.7, 0.2, 0.16], glow: [0.7, 0.5, 0.5] },
+    void:      { mono: [0.78, 0.55, 0.18], glow: [0.78, 0.9, 0.6] },
+    aurora:    { mono: [0.42, 0.6, 0.2], glow: [0.45, 0.9, 0.6] },
+  };
+  const p = palettes[skyPreset] || palettes.starfield;
+  let i = 0;
+  sceneryGroup.children.forEach((mesh) => {
+    const isCrystal = mesh.geometry?.type === 'OctahedronGeometry';
+    const cfg = isCrystal ? p.glow : p.mono;
+    const hue = (cfg[0] + (Math.random() - 0.5) * 0.08 + 1) % 1;
+    const color = new THREE.Color().setHSL(hue, cfg[1], cfg[2]);
+    mesh.material.color.copy(color);
+    if (mesh.material.emissive) {
+      mesh.material.emissive.copy(color).multiplyScalar(isCrystal ? 1.0 : 0.18);
+    }
+    i++;
+  });
+}
+
+export function updateDistantScenery(delta) {
+  if (!sceneryGroup) return;
+  sceneryGroup.children.forEach((mesh) => {
+    if (mesh.geometry?.type === 'OctahedronGeometry') {
+      mesh.userData.bobPhase += delta * 0.6;
+      mesh.position.y = mesh.userData.baseY + Math.sin(mesh.userData.bobPhase) * mesh.userData.bobAmp;
+      mesh.rotation.y += delta * mesh.userData.spinSpeed;
+      mesh.rotation.x += delta * mesh.userData.spinSpeed * 0.5;
+    }
+  });
 }
 
 export function disposeParticles(scene) {

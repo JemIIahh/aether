@@ -48,6 +48,19 @@ const AFK_CHECK_INTERVAL = 5000;
 const NEW_TYPE_TEMPLATES = ['king_plateau', 'king_islands', 'hot_potato_arena', 'hot_potato_platforms', 'checkpoint_dash', 'race_circuit'];
 const ALL_TEMPLATES = ['spiral_tower', 'floating_islands', 'gauntlet', 'shrinking_arena', 'parkour_hell', 'hex_a_gone', 'slime_climb', 'wind_tunnel', 'treasure_trove', 'ice_rink', ...NEW_TYPE_TEMPLATES];
 
+// Difficulty curve — start gentle, ramp up so the first round of an arena
+// session is winnable for new players. Easy = flat / wide / forgiving paths.
+// Medium = standard reach/race. Hard = tight parkour and chaos.
+const EASY_TEMPLATES = ['floating_islands', 'treasure_trove', 'king_plateau', 'shrinking_arena', 'hot_potato_arena'];
+const MEDIUM_TEMPLATES = ['spiral_tower', 'gauntlet', 'hex_a_gone', 'ice_rink', 'hot_potato_platforms', 'checkpoint_dash', 'race_circuit', 'king_islands'];
+const HARD_TEMPLATES = ['parkour_hell', 'slime_climb', 'wind_tunnel'];
+
+function getTemplatePoolForRound(gameNumber) {
+  if (gameNumber < 2) return EASY_TEMPLATES;
+  if (gameNumber < 5) return [...EASY_TEMPLATES, ...MEDIUM_TEMPLATES];
+  return ALL_TEMPLATES;
+}
+
 function getTemplateGameType(templateName) {
   if (templateName.includes('king')) return 'king';
   if (templateName.includes('hot_potato')) return 'hot_potato';
@@ -158,10 +171,11 @@ function rejectIfLobbyTimer(arena, res) {
   return false;
 }
 
-function applyTemplate(arena, tmpl, doRandomize = true) {
+function applyTemplate(arena, tmpl, doRandomize = true, gameNumber = null) {
   const ws = arena.worldState;
   const broadcast = arena.broadcastToRoom.bind(arena);
-  const finalTmpl = doRandomize ? randomizeTemplate(tmpl) : tmpl;
+  const round = gameNumber ?? ws.gameHistory?.length ?? 0;
+  const finalTmpl = doRandomize ? randomizeTemplate(tmpl, { round }) : tmpl;
   const cleared = ws.clearEntities();
   for (const id of cleared) broadcast('entity_destroyed', { id });
 
@@ -249,10 +263,12 @@ function scheduleAutoStart(arena) {
     if (activePlayers.length === 0) return;
 
     const playerCount = activePlayers.length;
-    const recentTemplates = ws.gameHistory.slice(-3).map(g => g.template);
+    const recentTemplates = ws.gameHistory.slice(-5).map(g => g.template);
     const playedTypes = new Set(ws.gameHistory.map(g => g.type));
+    const gameNumber = ws.gameHistory.length;
+    const tier = getTemplatePoolForRound(gameNumber);
 
-    const playableTemplates = ALL_TEMPLATES.filter(t => {
+    const playableTemplates = tier.filter(t => {
       const minRequired = GAME_TYPES[getTemplateGameType(t)]?.minPlayers || 1;
       return playerCount >= minRequired;
     });
@@ -265,20 +281,20 @@ function scheduleAutoStart(arena) {
 
     const availableTemplates = playableTemplates.filter(t => !recentTemplates.includes(t));
 
-    // Prefer unplayed new types, then non-recent, then any playable, then all
+    // Prefer unplayed new types, then non-recent, then any playable, then tier
     const pool = unplayedNewTemplates.length > 0 ? unplayedNewTemplates
       : availableTemplates.length > 0 ? availableTemplates
       : playableTemplates.length > 0 ? playableTemplates
-      : ALL_TEMPLATES;
+      : tier;
 
     const template = pool[Math.floor(Math.random() * pool.length)];
-    console.log(`[AutoStart:${arena.id}] Agent didn't start a game in ${delay / 1000}s — auto-starting with ${template}`);
+    console.log(`[AutoStart:${arena.id}] Auto-starting ${template} (round ${gameNumber + 1}, tier=${tier === EASY_TEMPLATES ? 'easy' : tier === ALL_TEMPLATES ? 'all' : 'mixed'})`);
 
     try {
       const { TEMPLATES } = await import('./ArenaTemplates.js');
       const tmpl = TEMPLATES[template];
       if (!tmpl) return;
-      applyTemplate(arena, tmpl);
+      applyTemplate(arena, tmpl, true, gameNumber);
       ws.setLastTemplate(template);
       doStartGame(arena, tmpl.gameType || 'reach', {});
     } catch (e) {
@@ -923,10 +939,26 @@ gameRouter.post('/game/start', (req, res) => {
 
   if (template) {
     import('./ArenaTemplates.js').then(({ TEMPLATES }) => {
-      const tmpl = TEMPLATES[template];
+      // Enforce the difficulty tier even when the agent picks a template
+      // directly — otherwise the LLM happily ships "PARKOUR HELL" on round 1
+      // and stomps the newcomer experience.
+      const round = ws.gameHistory?.length ?? 0;
+      const allowedTier = getTemplatePoolForRound(round);
+      let resolvedName = template;
+      if (!allowedTier.includes(template)) {
+        const fallback = allowedTier[Math.floor(Math.random() * allowedTier.length)];
+        console.log(`[GameStart:${arena.id}] Agent picked ${template} but round ${round + 1} only allows ${allowedTier.join(',')} — swapping to ${fallback}`);
+        resolvedName = fallback;
+        // Tag the arena so the next agent chat (e.g. "PARKOUR HELL!") gets
+        // rewritten to reflect what we actually started.
+        arena._swappedFrom = template;
+        arena._swappedTo = fallback;
+        arena._swappedTemplateUntil = Date.now() + 6000;
+      }
+      const tmpl = TEMPLATES[resolvedName];
       if (!tmpl) {
         return res.status(404).json({
-          error: `Template not found: ${template}. Available: ${Object.keys(TEMPLATES).join(', ')}`
+          error: `Template not found: ${resolvedName}. Available: ${Object.keys(TEMPLATES).join(', ')}`
         });
       }
 
@@ -943,7 +975,7 @@ gameRouter.post('/game/start', (req, res) => {
       }
 
       applyTemplate(arena, tmpl);
-      ws.setLastTemplate(template);
+      ws.setLastTemplate(resolvedName);
 
       const result = doStartGame(arena, gameType, req.body);
       if (!result.success) {
@@ -1067,13 +1099,25 @@ gameRouter.post('/chat/send', (req, res) => {
   }
   arena.lastAgentChatTime = now;
 
-  const { text } = req.body;
+  let { text } = req.body;
   if (!text || String(text).trim().length === 0) {
     return res.status(400).json({ error: 'Missing required: text' });
   }
+  text = String(text).trim();
+
+  // If the agent's chat is hyping a template the server just swapped out
+  // (e.g. "PARKOUR HELL" on round 1 → server swapped to floating_islands),
+  // rewrite to something honest so the chat doesn't lie to the player.
+  if (arena._swappedTemplateUntil && Date.now() < arena._swappedTemplateUntil) {
+    const swappedFromUC = arena._swappedFrom?.toUpperCase().replace(/_/g, ' ');
+    const swappedToHuman = arena._swappedTo?.toUpperCase().replace(/_/g, ' ');
+    if (swappedFromUC && text.toUpperCase().includes(swappedFromUC.split(' ')[0])) {
+      text = `CHANGE OF PLANS — ${swappedToHuman}!`;
+    }
+  }
 
   const senderName = arena.isDefault ? 'The Aetherist' : arena.gameMasterName;
-  const message = arena.worldState.addMessage(senderName, 'agent', String(text).trim());
+  const message = arena.worldState.addMessage(senderName, 'agent', text);
   arena.broadcastToRoom('chat_message', message);
   if (arena.agentLoop) arena.agentLoop.notifyAgentAction();
   res.json({ success: true, message });

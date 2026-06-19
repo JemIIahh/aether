@@ -58,10 +58,16 @@ export async function loginWithTwitter() {
   }
 
   try {
-    bridge.initOAuth({ provider: 'twitter' });
+    // Must be awaited — Privy v3's initOAuth returns a Promise that resolves
+    // when the redirect kicks off (or rejects with the real reason: bad
+    // appId, Twitter not enabled in dashboard, callback URL not allow-listed).
+    // Without the await, errors are swallowed and the splash hangs on
+    // "Redirecting to Twitter...".
+    await bridge.initOAuth({ provider: 'twitter' });
   } catch (e) {
     console.error('[Auth] Twitter OAuth failed:', e);
-    throw new Error('Failed to start Twitter login. Check Privy dashboard settings.', { cause: e });
+    const msg = e?.message || e?.error_description || 'Unknown OAuth error';
+    throw new Error(`Twitter login failed: ${msg}. Check Privy dashboard → Login methods → X(Twitter).`, { cause: e });
   }
 }
 
