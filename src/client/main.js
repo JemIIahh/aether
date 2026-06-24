@@ -31,12 +31,16 @@ const OG_CHAIN_NAME = OG_IS_MAINNET ? '0G Mainnet' : '0G Testnet';
 // ============================================
 const isLocalhost = window.location.hostname === 'localhost';
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const SERVER_URL = isLocalhost
-  ? 'ws://localhost:3000'
-  : `${wsProtocol}//${window.location.host}`;
-const API_URL = isLocalhost
-  ? 'http://localhost:3000'
-  : `${window.location.protocol}//${window.location.host}`;
+// VITE_BACKEND_URL lets the static client (e.g. on Vercel) point at a
+// remote game server (e.g. Railway). When unset we fall back to same-origin,
+// which keeps the monolith Docker deploy + local dev working unchanged.
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+const SERVER_URL = BACKEND_URL
+  ? BACKEND_URL.replace(/^http/, 'ws')
+  : (isLocalhost ? 'ws://localhost:3000' : `${wsProtocol}//${window.location.host}`);
+const API_URL = BACKEND_URL
+  ? BACKEND_URL
+  : (isLocalhost ? 'http://localhost:3000' : `${window.location.protocol}//${window.location.host}`);
 
 // Spectator mode detection
 const urlParams = new URLSearchParams(window.location.search);

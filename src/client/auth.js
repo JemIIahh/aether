@@ -17,9 +17,14 @@ async function loadPrivyBridge() {
   return _mountPrivyBridge;
 }
 
-const API_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000'
-  : `${window.location.protocol}//${window.location.host}`;
+// See main.js — VITE_BACKEND_URL points the static client at a remote
+// game server when client and server are deployed separately.
+const _backend = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+const API_URL = _backend
+  ? _backend
+  : (window.location.hostname === 'localhost'
+      ? 'http://localhost:3000'
+      : `${window.location.protocol}//${window.location.host}`);
 
 let bridge = null;
 
