@@ -162,9 +162,10 @@ export class AIPlayer {
       velocity: [...this.velocity]
     });
 
-    // Random chat (longer cooldown in lobby/building to avoid spam)
-    const chatCooldown = (gamePhase === 'lobby' || gamePhase === 'building') ? 60000 : 20000;
-    if (Math.random() < this.personality.chatFreq * delta * 0.1 && Date.now() - this.lastChatTime > chatCooldown) {
+    // Idle chatter is silent outside an active game — no spam in lobby/building/countdown
+    if (gamePhase === 'playing'
+      && Math.random() < this.personality.chatFreq * delta * 0.1
+      && Date.now() - this.lastChatTime > 30000) {
       this.chat('idle');
     }
   }
@@ -275,11 +276,13 @@ export class AIPlayer {
       position: [...this.position]
     });
 
-    const msg = this.worldState.addMessage('System', 'system', `${this.name} died`);
-    this.broadcast('chat_message', msg);
     this.worldState.addEvent('player_death', { playerId: this.id, name: this.name });
 
-    this.chat('death');
+    // Bots die a lot — chat their death lines at most once per 30s, and never
+    // emit the "System: X died" line (which would spam the chat panel).
+    if (Date.now() - this.lastChatTime > 30000) {
+      this.chat('death');
+    }
 
     // Respawn after delay
     setTimeout(() => this.respawn(), 2000);

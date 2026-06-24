@@ -463,6 +463,7 @@ export class WorldState {
     if (player) {
       this.players.delete(id);
       console.log(`[WorldState] Player left: ${player.name}`);
+      if (typeof this.onPlayerLeave === 'function') this.onPlayerLeave(player);
     }
   }
 

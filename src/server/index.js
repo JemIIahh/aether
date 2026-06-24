@@ -398,8 +398,19 @@ function setupArenaCallbacks(arena) {
 
   ws.onPlayerJoin = function onPlayerJoin(player) {
     if (player.type === 'ai') return;
+    if (arena.aiPlayersEnabled && arena.aiPlayers.length === 0) {
+      spawnAIPlayers(arena);
+    }
     if (ws.gameState.phase === 'lobby' && !ws.autoStartTargetTime) {
       scheduleAutoStart(arena);
+    }
+  };
+
+  ws.onPlayerLeave = function onPlayerLeave(player) {
+    if (player.type === 'ai') return;
+    const hasHumans = Array.from(ws.players.values()).some(p => p.type !== 'ai');
+    if (!hasHumans && arena.aiPlayers.length > 0) {
+      despawnAIPlayers(arena);
     }
   };
 
@@ -1731,9 +1742,8 @@ const broadcast = defaultArena.broadcastToRoom.bind(defaultArena);
 defaultArena.agentLoop = new AgentLoop(defaultArena.worldState, broadcast, { chain });
 defaultArena.agentLoop.start();
 
-// AI players for default arena
+// AI players for default arena — spawned lazily when a human joins, despawned when last human leaves
 defaultArena.aiPlayersEnabled = process.env.AI_PLAYERS === 'true';
-if (defaultArena.aiPlayersEnabled) spawnAIPlayers(defaultArena);
 
 httpServer.listen(PORT, () => {
   console.log(`
