@@ -176,6 +176,18 @@ Aligned to Zero Cup cutoffs:
 - 🛠 **R4 · Quarter Finals (Jul 8)** — Polish pass (camera, lighting, lobby UI), demo video, public deployment
 - 🏆 **R5–6 · Semi Finals + Finals (Jul 12–19)** — Community vote
 
+### Beyond Zero Cup — planned enhancements
+
+Stack-agnostic improvements to round out the product. None of these change the 0G surface; they sit on top of it.
+
+- 🔜 **Sybil-resistant identity gate** — unverified players spawn as spectators and can chat/bribe but cannot win prizes. Verified humans (Privy email/Twitter attestation, wallet-age heuristic, or 0G-native attestation) flip to active. Keeps leaderboards honest and prize flows trustworthy.
+- 🔜 **On-chain prize pool on 0G** — bribes split via configurable BPS into prize pool / treasury / burn. Smart contract on 0G with `recordWinners(gameId, addrs[], amounts[])` + per-winner `claim()`. Trustless game-end payouts; no operator custody.
+- 🔜 **Winner-claim UX** — `/api/payouts/pending/:addr` endpoint + claim panel in the wallet UI. Winners see what they're owed across games and redeem in one tx. Pairs with the prize pool above; degrades cleanly to a simple ledger if the contract isn't deployed.
+- 🔜 **One-click deploy templates** — `vercel.json` for the client, `railway.json` (or Fly/Render equivalent) for the server, plus a `DEPLOY.md` runbook. Lowers the barrier for community-hosted arenas.
+- 🔜 **Full-game e2e simulation** — `scripts/simulate-show.js`: spawns headless bots, runs a complete mini-game from lobby → bribes → result → storage upload. Complements the existing per-action smoke tests; useful for regression and demos.
+- 🔜 **Mobile leaderboard refinement** — icon-trigger + slide-out drawer instead of always-visible panel. Less occlusion of the 3D scene on small screens.
+- 🔜 **Hardhat tooling** — added only if the on-chain prize pool ships; gives a standard contract build/test pipeline targeting 0G testnet + mainnet.
+
 ---
 
 ## License
