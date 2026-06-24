@@ -173,20 +173,9 @@ Aligned to Zero Cup cutoffs:
 - ✅ **R1 · Group Stage (Jun 23)** — playable build on 0G, Privy wallet flow live, bribes verified by `viem` against 0G testnet
 - ✅ **R2 · Round of 32 (Jun 28)** — The Aetherist's reasoning on **0G Compute** (signed inference via `@0glabs/0g-serving-broker`, ledger-funded)
 - ✅ **R3 · Round of 16 (Jul 4)** — Game results uploaded to **0G Storage** via `@0gfoundation/0g-ts-sdk` (rootHashes returned per game)
-- 🛠 **R4 · Quarter Finals (Jul 8)** — Polish pass (camera, lighting, lobby UI), demo video, public deployment
-- 🏆 **R5–6 · Semi Finals + Finals (Jul 12–19)** — Community vote
-
-### Beyond Zero Cup — planned enhancements
-
-Stack-agnostic improvements to round out the product. None of these change the 0G surface; they sit on top of it.
-
-- 🔜 **Sybil-resistant identity gate** — unverified players spawn as spectators and can chat/bribe but cannot win prizes. Verified humans (Privy email/Twitter attestation, wallet-age heuristic, or 0G-native attestation) flip to active. Keeps leaderboards honest and prize flows trustworthy.
-- 🔜 **On-chain prize pool on 0G** — bribes split via configurable BPS into prize pool / treasury / burn. Smart contract on 0G with `recordWinners(gameId, addrs[], amounts[])` + per-winner `claim()`. Trustless game-end payouts; no operator custody.
-- 🔜 **Winner-claim UX** — `/api/payouts/pending/:addr` endpoint + claim panel in the wallet UI. Winners see what they're owed across games and redeem in one tx. Pairs with the prize pool above; degrades cleanly to a simple ledger if the contract isn't deployed.
-- 🔜 **One-click deploy templates** — `vercel.json` for the client, `railway.json` (or Fly/Render equivalent) for the server, plus a `DEPLOY.md` runbook. Lowers the barrier for community-hosted arenas.
-- 🔜 **Full-game e2e simulation** — `scripts/simulate-show.js`: spawns headless bots, runs a complete mini-game from lobby → bribes → result → storage upload. Complements the existing per-action smoke tests; useful for regression and demos.
-- 🔜 **Mobile leaderboard refinement** — icon-trigger + slide-out drawer instead of always-visible panel. Less occlusion of the 3D scene on small screens.
-- 🔜 **Hardhat tooling** — added only if the on-chain prize pool ships; gives a standard contract build/test pipeline targeting 0G testnet + mainnet.
+- 🛠 **R4 · Quarter Finals (Jul 8)** — Polish pass (camera, lighting, lobby UI), demo video, public deployment via one-click templates (`vercel.json` client + `railway.json` server + `DEPLOY.md` runbook); mobile leaderboard refinement (icon-trigger + slide-out drawer to reduce 3D-scene occlusion); `scripts/simulate-show.js` headless-bot run-through (lobby → bribes → result → storage upload) for regression + demo capture
+- 🛠 **R5 · Semi Finals (Jul 12)** — Sybil-resistant identity gate (unverified players spawn as spectators with chat + bribe rights; verified humans flip to active via Privy email/Twitter attestation, wallet-age heuristic, or 0G-native attestation); `/api/payouts/pending/:addr` ledger + claim panel in the wallet UI for cross-game winner redemptions
+- 🏆 **R6 · Finals (Jul 19)** — On-chain prize pool deployed on 0G: bribes split via configurable BPS into prize pool / treasury / burn; contract exposes `recordWinners(gameId, addrs[], amounts[])` + per-winner `claim()` so game-end payouts are trustless and the operator never holds funds. Hardhat pipeline added for the build/test/deploy targeting 0G testnet (and mainnet when the contract is audit-ready). Community vote.
 
 ---
 
