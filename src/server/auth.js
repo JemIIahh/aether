@@ -27,16 +27,27 @@ export function initAuth() {
 export async function verifyPrivyToken(accessToken) {
   if (!privyClient || !accessToken) return null;
   try {
+    // Cryptographic verification — JWT signature checked against Privy's
+    // public keys. Anything tampered throws here.
     const claims = await privyClient.verifyAuthToken(accessToken);
     let user = await privyClient.getUser(claims.userId);
-    const twitter = user.linkedAccounts.find(a => a.type === 'twitter_oauth');
 
-    // Extract embedded EVM wallet address
+    // Extract each login method we accept. Privy's getUser() only returns
+    // linkedAccounts the user actually authenticated with — appearing in the
+    // array is itself proof of verification. (Earlier code also required a
+    // verifiedAt stamp, but that field is inconsistently named across SDK
+    // versions and account types and was rejecting valid logins.)
+    const twitter = user.linkedAccounts.find(a => a.type === 'twitter_oauth') || null;
+    const email   = user.linkedAccounts.find(a => a.type === 'email') || null;
+    const extWallet = user.linkedAccounts.find(
+      a => a.type === 'wallet' && a.walletClientType !== 'privy' && a.chainType === 'ethereum'
+    ) || null;
+
+    // Embedded EVM wallet (Privy-managed, used for bribes). Not a "login
+    // method" itself — created on every login so users always have one.
     let evmWallet = user.linkedAccounts.find(
       a => a.type === 'wallet' && a.walletClientType === 'privy' && a.chainType === 'ethereum'
     );
-
-    // Create EVM wallet server-side if user doesn't have one
     if (!evmWallet) {
       try {
         console.log(`[Auth] Creating EVM wallet for ${claims.userId}...`);
@@ -50,12 +61,31 @@ export async function verifyPrivyToken(accessToken) {
       }
     }
 
+    // Reject if no verified login method was present — refuses bare userIds
+    // that somehow exist in Privy with zero confirmed linkages.
+    if (!twitter && !email && !extWallet) {
+      console.warn(`[Auth] Privy user ${claims.userId} has no verified login method`);
+      return null;
+    }
+
+    // Pick the primary method for display + telemetry.
+    const loginMethod = twitter ? 'twitter' : email ? 'email' : 'wallet';
+
+    // Display name preference: twitter handle → email local-part → wallet short.
+    let displayName = null;
+    if (twitter) displayName = twitter.name || twitter.username;
+    else if (email) displayName = email.address?.split('@')[0] || 'Player';
+    else if (extWallet) displayName = `${extWallet.address.slice(0, 6)}…${extWallet.address.slice(-4)}`;
+
     return {
       privyUserId: claims.userId,
+      loginMethod,
       twitterUsername: twitter?.username || null,
       twitterAvatar: twitter?.profilePictureUrl || null,
-      displayName: twitter?.name || twitter?.username || null,
-      walletAddress: evmWallet?.address || null
+      emailAddress: email?.address || null,
+      externalWalletAddress: extWallet?.address || null,
+      displayName,
+      walletAddress: evmWallet?.address || null,
     };
   } catch (err) {
     console.error('[Auth] Privy verification failed:', err.message);

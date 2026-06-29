@@ -76,6 +76,21 @@ export async function loginWithTwitter() {
   }
 }
 
+// Opens Privy's prebuilt login modal and resolves with a boolean —
+// true on successful auth, false if the user closed the modal without signing
+// in. Driven by React state transitions in PrivyBridge, not Privy's promise
+// (which returns void in v3 and can't tell us when login actually completed).
+export async function openLoginModal() {
+  if (!bridge) throw new Error('Privy not initialized — check VITE_PRIVY_APP_ID and VITE_PRIVY_CLIENT_ID');
+  if (bridge.authenticated) {
+    await silentLogout();
+  }
+  if (typeof bridge.loginAwait !== 'function') {
+    throw new Error('Privy bridge missing loginAwait — rebuild client');
+  }
+  return await bridge.loginAwait();
+}
+
 export async function handleOAuthCallback() {
   if (!bridge) return null;
 

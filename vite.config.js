@@ -13,7 +13,10 @@ export default defineConfig({
   server: {
     port: 5174,
     strictPort: true,
-    open: true,
+    // Don't auto-open on every dev start. Restarts during development would
+    // otherwise spawn a new tab in the OS default browser every time, even
+    // when the dev already has the game open in a different browser.
+    open: false,
   },
   build: {
     outDir: 'dist',

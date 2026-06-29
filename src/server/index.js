@@ -28,6 +28,7 @@ import { OG_RPC_URL } from '../shared/chains.js';
 import { getPrefabInfo } from './Prefabs.js';
 import { compose, loadCacheFromDisk, getComposerStats } from './Composer.js';
 import { randomizeTemplate } from './ArenaTemplates.js';
+import { composeAmbientScenery } from './AmbientScenery.js';
 import { ArenaManager } from './ArenaManager.js';
 import { createArenaMiddleware, requireArenaKey } from './arenaMiddleware.js';
 import { getStorage, getRecentPersisted } from './storage/ZeroGStorage.js';
@@ -203,6 +204,17 @@ function applyTemplate(arena, tmpl, doRandomize = true, gameNumber = null) {
     broadcast('hazard_plane_changed', { ...ws.hazardPlane });
   }
 
+  // Aetherist's "the world is built around you" moment — populate the outer
+  // ring with biome-aware monoliths / spires / arches so the big empty space
+  // around the play area reads as *place*, not dead canvas. Best-effort, never
+  // blocks the template apply.
+  try {
+    const sceneryIds = composeAmbientScenery(ws, broadcast, finalTmpl.environment);
+    for (const id of sceneryIds) spawned.push(id);
+  } catch (e) {
+    console.warn('[applyTemplate] ambient scenery failed:', e?.message);
+  }
+
   return spawned;
 }
 
@@ -258,9 +270,16 @@ function scheduleAutoStart(arena) {
   });
 
   arena.autoStartTimer = setTimeout(async () => {
+    // Always clear the target time so a subsequent join can reschedule.
+    // Without this, bailing out leaves autoStartTargetTime set to a past
+    // timestamp and onPlayerJoin's `!ws.autoStartTargetTime` gate stays false.
+    ws.autoStartTargetTime = null;
     if (ws.gameState.phase !== 'lobby') return;
     const activePlayers = getActiveHumanPlayers(ws);
-    if (activePlayers.length === 0) return;
+    if (activePlayers.length === 0) {
+      console.log(`[AutoStart:${arena.id}] no active players — waiting for next join`);
+      return;
+    }
 
     const playerCount = activePlayers.length;
     const recentTemplates = ws.gameHistory.slice(-5).map(g => g.template);
@@ -453,15 +472,24 @@ app.post('/api/auth/privy', async (req, res) => {
   const privyResult = await verifyPrivyToken(accessToken);
   if (!privyResult) return res.status(401).json({ error: 'Invalid Privy token' });
 
-  const { privyUserId, twitterUsername, twitterAvatar, displayName, walletAddress } = privyResult;
-  const name = twitterUsername || displayName || `User-${privyUserId.slice(-6)}`;
+  const {
+    privyUserId, loginMethod, twitterUsername, twitterAvatar,
+    emailAddress, externalWalletAddress, displayName, walletAddress
+  } = privyResult;
+  const name = displayName || twitterUsername || `User-${privyUserId.slice(-6)}`;
 
   upsertUser(privyUserId, name, 'authenticated', { privyUserId, twitterUsername, twitterAvatar, walletAddress });
 
   const token = signToken(privyUserId);
   res.json({
     token,
-    user: { id: privyUserId, name, type: 'authenticated', twitterUsername, twitterAvatar, walletAddress }
+    user: {
+      id: privyUserId, name, type: 'authenticated',
+      loginMethod,
+      twitterUsername, twitterAvatar,
+      emailAddress, externalWalletAddress,
+      walletAddress
+    }
   });
 });
 
@@ -480,7 +508,15 @@ app.get('/api/me', requireAuth, async (req, res) => {
   if (!user) {
     const id = req.user.id;
     const type = id.startsWith('guest-') ? 'guest' : 'authenticated';
-    const name = id.startsWith('guest-') ? `Guest-${id.split('-')[1]}` : id;
+    // Don't leak the raw did:privy:xxx user id as a display name when the DB
+    // is offline. Derive a short, friendly fallback instead.
+    let name;
+    if (id.startsWith('guest-')) {
+      name = `Guest-${id.split('-')[1]}`;
+    } else {
+      const tail = id.slice(-6);
+      name = `Player-${tail}`;
+    }
     return res.json({ id, name, type });
   }
   res.json(user);

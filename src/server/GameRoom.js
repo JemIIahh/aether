@@ -49,6 +49,19 @@ export class GameRoom extends Room {
     return player?.type === 'spectator';
   }
 
+  _deathVerbForCause(cause) {
+    switch (cause) {
+      case 'obstacle': return 'crashed into a hazard';
+      case 'lava': return 'sank into the lava';
+      case 'abyss': return 'fell into the abyss';
+      case 'void': return 'plummeted into the void';
+      case 'hazard_lava': return 'was caught by the rising lava';
+      case 'hazard_water': return 'was swallowed by the rising tide';
+      case 'hazard': return 'was caught by the rising tide';
+      default: return 'died';
+    }
+  }
+
   onCreate(options) {
     // Resolve arena from metadata (set by filterBy)
     const arenaId = this.metadata?.arenaId || 'aether';
@@ -108,14 +121,17 @@ export class GameRoom extends Room {
         this.worldState.recordChallengeAttempt(data.challengeId);
       }
 
+      const cause = typeof data?.cause === 'string' ? data.cause.slice(0, 24) : null;
+
       this.broadcast('player_died', {
         id: client.sessionId,
         position: data.position,
-        challengeId: data.challengeId
+        challengeId: data.challengeId,
+        cause
       });
 
-      this._systemMessage(`${name} died`);
-      this.worldState.addEvent('player_death', { playerId: client.sessionId, name });
+      this._systemMessage(`${name} ${this._deathVerbForCause(cause)}`);
+      this.worldState.addEvent('player_death', { playerId: client.sessionId, name, cause });
 
       // Notify mini-game of death (for survival, hot_potato, etc.)
       if (this.currentMiniGame?.isActive && typeof this.currentMiniGame.onPlayerDeath === 'function') {
