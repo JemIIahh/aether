@@ -13,9 +13,10 @@ import { createSkyDome, updateSkyColors, initParticles, updateEnvironmentEffects
 import { Client } from 'colyseus.js';
 import {
   initPrivy, handleOAuthCallback, exchangeForBackendToken, ensureEmbeddedWallet,
-  loginAsGuest, loginWithTwitter, getPrivyUser, getToken, debugAuth, logout,
+  loginAsGuest, loginWithTwitter, openLoginModal, getPrivyUser, getToken, debugAuth, logout,
   getEmbeddedWalletProvider, getEmbeddedWalletAddress, exportWallet
 } from './auth.js';
+import { startLandingScene, stopLandingScene } from './LandingScene.js';
 
 const TREASURY_ADDRESS = import.meta.env.VITE_TREASURY_ADDRESS || '';
 const OG_CHAIN_ID = Number(import.meta.env.VITE_OG_CHAIN_ID || 16602);
@@ -691,6 +692,10 @@ function clearSpectating() {
   state.isSpectating = false;
   const banner = document.getElementById('spectator-banner');
   if (banner) banner.remove();
+  // Restore the bottom controls bar — hidden while spectating because the
+  // labels ("JUMP", "MOVE") don't match what those keys do in fly-cam mode.
+  const controls = document.getElementById('controls');
+  if (controls) controls.style.display = '';
 }
 
 let spectatorFollowIndex = -1; // -1 = auto, 0+ = specific player
@@ -1331,6 +1336,7 @@ function showVignette(color, duration = 2000) {
 // Procedural Sound Effects
 // ============================================
 let audioCtx = null;
+let _audioUnlocked = false;
 
 function getAudioCtx() {
   if (!audioCtx) {
@@ -1338,6 +1344,31 @@ function getAudioCtx() {
   }
   return audioCtx;
 }
+
+// iOS Safari, Chrome on Android, and embedded webviews (Privy / MiniPay) create
+// AudioContext in 'suspended' state. The first user gesture must call resume()
+// or every sound silently no-ops. Bind once, then detach.
+function unlockAudio() {
+  if (_audioUnlocked) return;
+  _audioUnlocked = true;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    // Play a 1-sample silent buffer — some webviews need an actual node graph
+    // to flip out of suspended on first gesture.
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch { /* no-op */ }
+  // Defer ambient pad start until functions exist (this fires very early).
+  setTimeout(() => { try { startAmbientPad(); } catch {} }, 0);
+}
+
+['pointerdown', 'touchstart', 'keydown', 'click'].forEach(evt => {
+  window.addEventListener(evt, unlockAudio, { once: false, passive: true });
+});
 
 function createTone(waveType) {
   const ctx = getAudioCtx();
@@ -1402,6 +1433,20 @@ function playCountdownBeep(pitch = 440) {
   });
 }
 
+// Low bass thud that interleaves between countdown beeps — builds tension
+// over the final seconds before the round starts.
+function playCountdownDrum() {
+  playSound(() => {
+    const { osc, gain, t } = createTone('sine');
+    osc.frequency.setValueAtTime(110, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    osc.start(t);
+    osc.stop(t + 0.24);
+  });
+}
+
 function playWinFanfare() {
   playSound(() => {
     const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
@@ -1457,6 +1502,78 @@ function playBreakSound() {
     osc.start(t);
     osc.stop(t + 0.25);
   });
+}
+
+// Soft low-frequency click on every landing. Volume scales with fall speed so
+// gentle hops are subtle and heavy drops thump.
+function playFootstepSound(intensity = 1) {
+  playSound(() => {
+    const { osc, gain, t } = createTone('sine');
+    const vol = Math.min(0.12, 0.025 + intensity * 0.025);
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(70, t + 0.07);
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  });
+}
+
+// Sustained ambient pad — two detuned saws through a lowpass, very low volume.
+// Starts once on first audio unlock; runs for the session lifetime.
+let _ambientStarted = false;
+let _ambientMasterGain = null;
+function startAmbientPad() {
+  if (_ambientStarted) return;
+  _ambientStarted = true;
+  playSound(() => {
+    const ctx = getAudioCtx();
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+    _ambientMasterGain = master;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 420;
+    filter.Q.value = 0.6;
+    filter.connect(master);
+
+    // Two detuned saw oscillators for a warm, slowly-beating drone.
+    const root = 55; // A1
+    [0, 7].forEach((semitones, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      const freq = root * Math.pow(2, semitones / 12);
+      osc.frequency.value = freq;
+      osc.detune.value = i === 0 ? -6 : 8;
+      const oscGain = ctx.createGain();
+      oscGain.gain.value = 0.5;
+      osc.connect(oscGain);
+      oscGain.connect(filter);
+      osc.start();
+    });
+
+    // Slow LFO on the filter cutoff so the pad breathes.
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.08;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 120;
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    lfo.start();
+
+    // Fade in over 4 seconds — never announces itself.
+    master.gain.linearRampToValueAtTime(0.03, ctx.currentTime + 4);
+  });
+}
+
+function setAmbientVolume(level) {
+  if (!_ambientMasterGain) return;
+  const ctx = getAudioCtx();
+  _ambientMasterGain.gain.cancelScheduledValues(ctx.currentTime);
+  _ambientMasterGain.gain.linearRampToValueAtTime(level, ctx.currentTime + 0.6);
 }
 
 function playBounceSound() {
@@ -1526,8 +1643,10 @@ function checkCollisions() {
       continue;
     }
     if (entity.type === 'obstacle') {
-      if (state.gameState.phase === 'playing') {
-        playerDie();
+      // Respect the respawn-invuln window — otherwise a hazard sitting on the
+      // spawn point kills you every 2s in a loop.
+      if (state.gameState.phase === 'playing' && Date.now() >= respawnInvulnUntil) {
+        playerDie('obstacle');
       }
       continue;
     }
@@ -1635,27 +1754,31 @@ function collectItem(entity) {
 let lastDeathTime = 0;
 const DEATH_COOLDOWN = 2000; // 2 seconds between deaths
 
-function playerDie() {
-  if (!playerMesh || state.localPlayer?.state === 'dead') return;
+function playerDie(cause = null) {
+  if (!playerMesh || _isDeadUntilRespawn || state.localPlayer?.state === 'dead') return;
 
   // Prevent rapid death loops
   const now = Date.now();
   if (now - lastDeathTime < DEATH_COOLDOWN) return;
   lastDeathTime = now;
+  _isDeadUntilRespawn = true;
 
-  console.log('[Player] Died!');
+  console.log(`[Player] Died! cause=${cause || 'unknown'}`);
 
   if (state.localPlayer) {
     state.localPlayer.state = 'dead';
   }
 
-  sendToServer('died', { position: playerMesh.position.toArray() });
+  sendToServer('died', { position: playerMesh.position.toArray(), cause });
+
+  // Brief hitstop — freeze player movement for 130ms so death lands with weight.
+  _hitstopUntil = now + 130;
 
   // Enhanced death VFX
   spawnParticles(playerMesh.position, '#e74c3c', 35, 8);
   spawnParticles(playerMesh.position, '#ff6600', 15, 5);
   playDeathSound();
-  triggerCameraShake(0.5, 300);
+  triggerCameraShake(0.65, 380);
   screenFlash('#e74c3c', 400);
 
   playerMesh.material.color.setHex(0xff0000);
@@ -1665,6 +1788,33 @@ function playerDie() {
 }
 
 let respawnInvulnUntil = 0;
+let _hitstopUntil = 0;
+let _wasInvulnGlowing = false;
+// Authoritative dead-flag — does not depend on state.localPlayer, which can
+// be null/stale during the death cycle. Set in playerDie, cleared in
+// respawnPlayer. While true, updatePlayer skips physics so the dead body
+// doesn't fall endlessly through the void while waiting for the 1500ms
+// respawn timer.
+let _isDeadUntilRespawn = false;
+
+// Pulsing emissive shield while the respawn-invuln window is active.
+// Tells the player they're safe + makes the moment readable to spectators.
+function updateRespawnGlow(time) {
+  if (!playerMesh?.material?.emissive) return;
+  const active = Date.now() < respawnInvulnUntil;
+  if (active) {
+    // Pulse 0.4 → 1.4 at ~5Hz, cyan tinted.
+    const pulse = 0.9 + Math.sin(time * 10) * 0.5;
+    playerMesh.material.emissive.setHex(0x00f0ff);
+    playerMesh.material.emissiveIntensity = pulse;
+    _wasInvulnGlowing = true;
+  } else if (_wasInvulnGlowing) {
+    // Restore the player's default mint emissive once invuln expires.
+    playerMesh.material.emissive.setHex(0x00ff88);
+    playerMesh.material.emissiveIntensity = 1;
+    _wasInvulnGlowing = false;
+  }
+}
 
 function respawnPlayer() {
   if (!playerMesh) return;
@@ -1680,6 +1830,10 @@ function respawnPlayer() {
 
   // Brief invulnerability after respawn (prevents fall-death loops)
   respawnInvulnUntil = Date.now() + 2000;
+  _isDeadUntilRespawn = false;
+  // Reset the death-cooldown floor so a fresh fall right after respawn isn't
+  // silently swallowed by the rate limit.
+  lastDeathTime = 0;
 
   if (state.localPlayer) {
     state.localPlayer.state = 'alive';
@@ -1727,6 +1881,24 @@ function hasEffect(effectType) {
 
 function updatePlayer(delta) {
   if (!playerMesh) return;
+
+  // Freeze the body completely while dead. Without this, gravity keeps pulling
+  // Y down during the 1500ms respawn timer; death checks below get suppressed
+  // by the dead-flag, so the player visually plummets through the void until
+  // respawn — reading as "endless fall." Hitstop is a stronger version of the
+  // same idea, scoped to the first 130ms.
+  if (_isDeadUntilRespawn) {
+    playerVelocity.set(0, 0, 0);
+    frameDelta = 0;
+    return;
+  }
+
+  // Hitstop — freeze physics briefly so impacts (death, big hits) read with weight.
+  if (Date.now() < _hitstopUntil) {
+    playerVelocity.set(0, 0, 0);
+    frameDelta = 0;
+    return;
+  }
 
   // Clamp delta to prevent physics explosions on tab-switch
   delta = Math.min(delta, 0.05);
@@ -1851,30 +2023,35 @@ function updatePlayer(delta) {
     }
   } else if (currentFloorType === 'none') {
     if (playerMesh.position.y < ABYSS_DEATH_Y && !invulnerable) {
-      playerDie();
+      playerDie('abyss');
     }
   } else if (currentFloorType === 'lava') {
     if (playerMesh.position.y < LAVA_DEATH_Y && !invulnerable) {
       spawnParticles(playerMesh.position, '#ff4500', 20, 6);
       spawnParticles(playerMesh.position, '#ffaa00', 10, 4);
-      playerDie();
+      playerDie('lava');
     }
   }
   // Hazard plane death (rising lava/water)
   if (hazardPlaneState.active && phase === 'playing' && playerMesh.position.y < hazardPlaneState.height && !invulnerable) {
     spawnParticles(playerMesh.position, hazardPlaneState.type === 'lava' ? '#ff4500' : '#3498db', 20, 6);
-    playerDie();
+    playerDie(hazardPlaneState.type === 'lava' ? 'hazard_lava' : 'hazard_water');
   }
   // Void death (Y < -50) stays always active as ultimate safety net
   if (playerMesh.position.y < VOID_DEATH_Y) {
-    playerDie();
+    playerDie('void');
   }
 
-  // Landing dust — fresh airborne → grounded transition
-  if (!_wasGroundedLastFrame && isGrounded && _lastFallSpeed < -8) {
-    spawnParticles(playerMesh.position, '#cfd8dc', Math.min(18, Math.floor(Math.abs(_lastFallSpeed) * 0.6)), 3);
-    spawnParticles(playerMesh.position, '#ffffff', 6, 2);
-    triggerCameraShake(0.12, 110);
+  // Landing — fresh airborne → grounded transition
+  if (!_wasGroundedLastFrame && isGrounded) {
+    const fallMag = Math.abs(_lastFallSpeed);
+    // Soft footstep on every landing; heavier landings get dust + shake.
+    playFootstepSound(Math.min(2.5, fallMag / 6));
+    if (_lastFallSpeed < -8) {
+      spawnParticles(playerMesh.position, '#cfd8dc', Math.min(18, Math.floor(fallMag * 0.6)), 3);
+      spawnParticles(playerMesh.position, '#ffffff', 6, 2);
+      triggerCameraShake(0.12, 110);
+    }
   }
   _wasGroundedLastFrame = isGrounded;
   _lastFallSpeed = playerVelocity.y;
@@ -2864,7 +3041,14 @@ async function connectToServer() {
     room.onMessage('player_died', (data) => {
       const player = state.players.get(data.id);
       const name = player?.name || data.id?.slice(0, 8) || 'Player';
-      addKillFeedEntry(`${name} died`);
+      addKillFeedEntry(`${name} ${deathVerb(data?.cause)}`);
+      // Small shake when another player dies near you — sells the moment.
+      if (data?.position && playerMesh && data.id !== room.sessionId) {
+        const dx = data.position[0] - playerMesh.position.x;
+        const dz = data.position[2] - playerMesh.position.z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < 400) triggerCameraShake(0.15, 160);
+      }
     });
 
     // Chat
@@ -3094,6 +3278,12 @@ async function connectToServer() {
         if (scoreOverlay) scoreOverlay.style.display = 'none';
         if (curseTimer) { curseTimer.style.display = 'none'; curseTimer.className = ''; }
         if (checkpointDisplay) checkpointDisplay.style.display = 'none';
+        // Defensive: clear any leftover death state when the round resets so
+        // a player who was mid-death-cycle when the game ended starts fresh.
+        _isDeadUntilRespawn = false;
+        _hitstopUntil = 0;
+        lastDeathTime = 0;
+        respawnInvulnUntil = 0;
         state._cursedPlayerId = null;
         // Clear curse glow from all remote players
         for (const [, mesh] of remotePlayers) {
@@ -3110,6 +3300,12 @@ async function connectToServer() {
         // Countdown beeps: 5, 4, 3, 2, 1, GO!
         for (let i = 0; i < 5; i++) setTimeout(() => playCountdownBeep(440), i * 1000);
         setTimeout(() => playCountdownBeep(880), 5000); // higher pitch for GO
+
+        // Drumroll on the final 3s — half-second bass pulses building to GO.
+        // Schedules ms = 2000, 2500, 3000, 3500, 4000, 4500.
+        for (let ms = 2000; ms <= 4500; ms += 500) {
+          setTimeout(playCountdownDrum, ms);
+        }
 
         // Ticking countdown display — clear any prior interval to prevent leaks
         clearCountdownInterval();
@@ -3177,9 +3373,34 @@ async function connectToServer() {
         state.isSpectating = true;
         const banner = document.createElement('div');
         banner.id = 'spectator-banner';
-        banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#f39c12;padding:10px 24px;border-radius:8px;font-size:16px;z-index:999;pointer-events:none;';
-        banner.textContent = 'Spectating — WASD to fly, drag to look, 0-9 to follow players';
+        banner.style.cssText = [
+          'position:fixed',
+          'top:70px',
+          'left:50%',
+          'transform:translateX(-50%)',
+          'background:linear-gradient(135deg, rgba(243,156,18,0.95), rgba(231,76,60,0.95))',
+          'color:#fff',
+          'padding:14px 28px',
+          'border-radius:12px',
+          'font-size:15px',
+          'font-weight:600',
+          'letter-spacing:0.3px',
+          'z-index:999',
+          'pointer-events:none',
+          'box-shadow:0 8px 30px rgba(0,0,0,0.5), 0 0 0 2px rgba(255,255,255,0.15) inset',
+          'text-align:center',
+          'max-width:min(540px, 90vw)',
+        ].join(';');
+        banner.innerHTML = [
+          '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">👀 SPECTATING</div>',
+          '<div style="opacity:0.95;font-size:13px;">A round is in progress. You\'ll be playing the next one.</div>',
+          '<div style="opacity:0.75;font-size:11px;margin-top:6px;">WASD = fly · drag = look · 0-9 = follow a player</div>',
+        ].join('');
         document.body.appendChild(banner);
+        // Hide the bottom controls bar so the misleading "JUMP / MOVE" labels
+        // don't suggest the player is in control.
+        const controls = document.getElementById('controls');
+        if (controls) controls.style.display = 'none';
       }
     });
 
@@ -3211,6 +3432,7 @@ function animate() {
 
   if (playerMesh && !isInSpectatorMode()) {
     updateSquashStretch(playerMesh, playerVelocity.y, isGrounded);
+    updateRespawnGlow(time);
   }
 
   for (const [, mesh] of remotePlayers) {
@@ -3395,6 +3617,29 @@ async function startAuthFlow() {
   const statusEl = document.getElementById('login-status');
   const continueBtn = document.getElementById('btn-continue');
   const twitterBtn = document.getElementById('btn-twitter-login');
+  const emailWalletBtn = document.getElementById('btn-email-wallet-login');
+  const openLoginBtn = document.getElementById('btn-open-login');
+  const modalOverlay = document.getElementById('login-modal-overlay');
+  const modalCloseBtn = document.getElementById('login-modal-close');
+
+  function openLoginModalUI() {
+    if (!modalOverlay) return;
+    modalOverlay.classList.add('show');
+    modalOverlay.setAttribute('aria-hidden', 'false');
+  }
+  function closeLoginModalUI() {
+    if (!modalOverlay) return;
+    modalOverlay.classList.remove('show');
+    modalOverlay.setAttribute('aria-hidden', 'true');
+  }
+  openLoginBtn?.addEventListener('click', openLoginModalUI);
+  modalCloseBtn?.addEventListener('click', closeLoginModalUI);
+  modalOverlay?.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeLoginModalUI();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalOverlay?.classList.contains('show')) closeLoginModalUI();
+  });
 
   // Ensure the splash is visible for at least this long, so the brand moment
   // registers even on instant-cache returning users / fast paths.
@@ -3413,6 +3658,33 @@ async function startAuthFlow() {
   async function hideLoginScreen() {
     await waitForSplashMin();
     document.getElementById('login-screen').style.display = 'none';
+    // Free the landing scene's renderer + geometry/material once the game
+    // takes over — otherwise it idles a second WebGL context forever.
+    stopLandingScene();
+  }
+
+  // Kick the landing scene off as soon as we know the DOM has the canvas.
+  const landingCanvas = document.getElementById('landing-bg-canvas');
+  if (landingCanvas) startLandingScene(landingCanvas);
+
+  // Theme toggle: MONO (default) ↔ COLOR. Choice persists in localStorage so
+  // a user who switches to color stays in color across reloads.
+  const themeToggle = document.getElementById('theme-toggle');
+  const loginScreen = document.getElementById('login-screen');
+  if (themeToggle && loginScreen) {
+    const stored = localStorage.getItem('aether:landing-theme');
+    if (stored === 'color') loginScreen.classList.remove('theme-mono');
+    const updateLabel = () => {
+      const label = themeToggle.querySelector('.theme-toggle-label');
+      if (label) label.textContent = loginScreen.classList.contains('theme-mono') ? 'MONO' : 'COLOR';
+    };
+    updateLabel();
+    themeToggle.addEventListener('click', () => {
+      loginScreen.classList.toggle('theme-mono');
+      const isMono = loginScreen.classList.contains('theme-mono');
+      localStorage.setItem('aether:landing-theme', isMono ? 'mono' : 'color');
+      updateLabel();
+    });
   }
 
   const appId = import.meta.env.VITE_PRIVY_APP_ID;
@@ -3431,15 +3703,24 @@ async function startAuthFlow() {
         twitterBtn.disabled = false;
         twitterBtn.innerHTML = 'Login with X (Twitter)';
       }
+      if (emailWalletBtn) {
+        emailWalletBtn.disabled = false;
+        emailWalletBtn.innerHTML = 'Email or Wallet';
+      }
     }).catch(e => {
       console.error('[Auth] Privy init failed:', e);
       if (twitterBtn) {
         twitterBtn.textContent = 'Twitter Unavailable';
         twitterBtn.disabled = true;
       }
+      if (emailWalletBtn) {
+        emailWalletBtn.textContent = 'Login Unavailable';
+        emailWalletBtn.disabled = true;
+      }
     });
-  } else if (twitterBtn) {
-    twitterBtn.style.display = 'none';
+  } else {
+    if (twitterBtn) twitterBtn.style.display = 'none';
+    if (emailWalletBtn) emailWalletBtn.style.display = 'none';
   }
 
   // --- Returning user with cached token: surface a "Continue as X" button
@@ -3456,7 +3737,7 @@ async function startAuthFlow() {
       if (res.ok) {
         cachedUser = await res.json();
         if (continueBtn) {
-          const displayName = cachedUser.name || cachedUser.handle || 'Player';
+          const displayName = friendlyDisplayName(cachedUser);
           continueBtn.textContent = `Continue as ${displayName}`;
           continueBtn.style.display = 'block';
         }
@@ -3504,7 +3785,7 @@ async function startAuthFlow() {
       const privyUser = await getPrivyUser();
       const result = privyUser ? await exchangeForBackendToken() : null;
       if (result && continueBtn) {
-        const userName = result.user?.name || result.user?.twitterUsername || 'Player';
+        const userName = friendlyDisplayName(result.user);
         continueBtn.textContent = `Continue as ${userName}`;
         continueBtn.style.display = 'block';
       }
@@ -3517,11 +3798,23 @@ async function startAuthFlow() {
   return new Promise((resolve) => {
     continueBtn?.addEventListener('click', async () => {
       const token = getToken();
-      if (token) {
-        await ensureEmbeddedWallet();
-        await hideLoginScreen();
-        resolve({ token, user: { name: continueBtn.textContent.replace('Continue as ', '') } });
+      if (!token) return;
+      await ensureEmbeddedWallet();
+      await hideLoginScreen();
+      // Resolve with the full user fetched from /api/me, not just a name —
+      // otherwise authUser.user.type is undefined and every gated feature
+      // (wallet panel, bribes) treats the user as a guest.
+      let user = cachedUser;
+      if (!user) {
+        try {
+          const res = await fetch(`${API_URL}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
+          if (res.ok) user = await res.json();
+        } catch { /* fall through to synthetic user */ }
       }
+      if (!user) {
+        user = { name: continueBtn.textContent.replace('Continue as ', '') };
+      }
+      resolve({ token, user });
     });
 
     twitterBtn?.addEventListener('click', async () => {
@@ -3536,6 +3829,36 @@ async function startAuthFlow() {
       setStatus('Redirecting to Twitter...');
       try {
         await loginWithTwitter();
+      } catch (e) {
+        setStatus('Login failed: ' + (e.message || 'Unknown error'));
+      }
+    });
+
+    emailWalletBtn?.addEventListener('click', async () => {
+      if (!privyReady) {
+        setStatus('Still loading… please wait');
+        await privyInitPromise;
+        if (!privyReady) {
+          setStatus('Login unavailable. Try Guest mode.');
+          return;
+        }
+      }
+      setStatus('Opening login…');
+      try {
+        const ok = await openLoginModal();
+        if (!ok) {
+          // User closed the modal without completing login. Quiet, not an error.
+          setStatus('');
+          return;
+        }
+        setStatus('Logging in…');
+        const result = await exchangeForBackendToken();
+        if (result) {
+          await hideLoginScreen();
+          resolve(result);
+        } else {
+          setStatus('Login completed but token exchange failed — try again.');
+        }
       } catch (e) {
         setStatus('Login failed: ' + (e.message || 'Unknown error'));
       }
@@ -3602,49 +3925,130 @@ function setupBribeUI() {
     })
     .catch(() => {});
 
-  btn.addEventListener('click', () => {
-    if (document.pointerLockElement) document.exitPointerLock();
-    if (!bribeOptions || !modal || !optionsList) return;
+  const statusEl = document.getElementById('bribe-status');
+  const flowMsgEl = document.getElementById('bribe-flow-msg');
+  let currentBalance0G = 0;
+  let currentWalletAddr = null;
 
+  function setFlowMsg(text, kind = 'info') {
+    if (!flowMsgEl) return;
+    if (!text) {
+      flowMsgEl.classList.remove('show', 'info', 'error', 'ok');
+      flowMsgEl.textContent = '';
+      return;
+    }
+    flowMsgEl.className = `show ${kind}`;
+    flowMsgEl.textContent = text;
+  }
+
+  async function refreshModalStatus() {
+    if (!statusEl) return;
+    const user = authUser?.user;
+    if (!user || user.type === 'guest' || user.type === 'spectator') {
+      statusEl.className = 'warn';
+      statusEl.innerHTML = 'Log in with Twitter to bribe the Aetherist — guests can watch but can\'t pay.';
+      currentBalance0G = 0;
+      currentWalletAddr = null;
+      return;
+    }
+    statusEl.className = '';
+    statusEl.textContent = 'Loading wallet…';
+    try {
+      const addr = await getEmbeddedWalletAddress();
+      if (!addr) {
+        statusEl.className = 'warn';
+        statusEl.innerHTML = 'No embedded wallet yet. Refresh the page if this persists.';
+        currentBalance0G = 0;
+        currentWalletAddr = null;
+        return;
+      }
+      currentWalletAddr = addr;
+      const res = await fetch(`${API_URL}/api/balance/${addr}`);
+      const data = await res.json();
+      currentBalance0G = parseFloat(data.balance || 0);
+      const short = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+      if (currentBalance0G === 0) {
+        statusEl.className = 'warn';
+        statusEl.innerHTML = `Wallet <code>${short}</code> · <span class="bribe-status-bal">0.0000 0G</span><br>Bribes need testnet 0G. <a href="https://faucet.0g.ai" target="_blank" rel="noopener">Get free Galileo tokens →</a>`;
+      } else {
+        statusEl.className = 'ok';
+        statusEl.innerHTML = `Wallet <code>${short}</code> · <span class="bribe-status-bal">${currentBalance0G.toFixed(4)} 0G</span> available`;
+      }
+    } catch (e) {
+      statusEl.className = 'warn';
+      statusEl.innerHTML = 'Could not load balance. Server reachable?';
+      console.warn('[Bribe] status refresh failed:', e?.message);
+    }
+  }
+
+  function renderOptions() {
+    if (!optionsList) return;
     optionsList.innerHTML = '';
     for (const [key, opt] of Object.entries(bribeOptions)) {
       const item = document.createElement('button');
       item.className = 'bribe-option';
       const costText = `${opt.cost0G} 0G`;
-      item.innerHTML = `<span class="bribe-opt-label">${opt.label}</span><span class="bribe-opt-cost">${costText}</span><span class="bribe-opt-desc">${opt.description}</span>`;
+      const cost = parseFloat(opt.cost0G);
+      const insufficient = currentBalance0G > 0 && currentBalance0G < cost;
+      const noBalance = currentBalance0G === 0;
+      let warnHtml = '';
+      if (insufficient) {
+        warnHtml = `<span class="bribe-opt-warn">Need ${(cost - currentBalance0G).toFixed(4)} more 0G</span>`;
+        item.classList.add('bribe-disabled');
+      } else if (noBalance) {
+        item.classList.add('bribe-disabled');
+      }
+      item.innerHTML = `<span class="bribe-opt-label">${opt.label}</span><span class="bribe-opt-cost">${costText}</span><span class="bribe-opt-desc">${opt.description}</span>${warnHtml}`;
       item.addEventListener('click', () => submitBribe(key));
       optionsList.appendChild(item);
     }
+  }
+
+  btn.addEventListener('click', async () => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    if (!bribeOptions || !modal || !optionsList) return;
+    setFlowMsg('');
     modal.style.display = 'flex';
+    await refreshModalStatus();
+    renderOptions();
   });
 
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       modal.style.display = 'none';
+      setFlowMsg('');
     });
   }
 
   function handleBribeResponse(data) {
     if (data.success) {
       updateBalance();
+      refreshModalStatus();
+      renderOptions();
       if (data.autoExecuted) {
+        setFlowMsg('Bribe accepted! Effect applied.', 'ok');
         showToast('Bribe accepted! Effect applied.', 'success');
       } else {
+        setFlowMsg('Bribe queued — the Aetherist will consider it…', 'info');
         showToast('Bribe queued! The Aetherist will consider it...', 'warning');
       }
     } else {
+      setFlowMsg(data.error || 'Bribe rejected', 'error');
       showToast(data.error || 'Bribe rejected', 'error');
     }
   }
 
   async function signAndSendTransaction(option) {
     if (authUser?.user?.type === 'guest') {
+      setFlowMsg('Log in with Twitter to bribe.', 'error');
       showToast('Login with Twitter to unlock bribes', 'error');
       return null;
     }
 
+    setFlowMsg('Connecting to wallet…', 'info');
     const walletResult = await getEmbeddedWalletProvider();
     if (!walletResult) {
+      setFlowMsg('Wallet not available. Refresh the page and try again.', 'error');
       showToast('Wallet not available. Try refreshing the page.', 'error');
       console.error('[Bribe] getEmbeddedWalletProvider returned null (see [Auth] warnings)');
       return null;
@@ -3676,7 +4080,9 @@ function setupBribeUI() {
       const chainId = await provider.request({ method: 'eth_chainId' });
       console.log('[Bribe] Current chain:', chainId);
       if (chainId !== OG_CHAIN_ID_HEX) {
-        showToast(`Wrong network. Expected ${OG_CHAIN_NAME} (chain ${OG_CHAIN_ID}).`, 'error');
+        const msg = `Wrong network. Expected ${OG_CHAIN_NAME} (chain ${OG_CHAIN_ID}).`;
+        setFlowMsg(msg, 'error');
+        showToast(msg, 'error');
         return null;
       }
     } catch (e) {
@@ -3687,16 +4093,19 @@ function setupBribeUI() {
     try {
       const balHex = await provider.request({ method: 'eth_getBalance', params: [address, 'latest'] });
       if (BigInt(balHex) < BigInt(option.costWei)) {
+        const msg = `Insufficient 0G. Need ${option.cost0G} 0G — grab some at faucet.0g.ai`;
+        setFlowMsg(msg, 'error');
         showToast(`Insufficient 0G. Need ${option.cost0G} 0G.`, 'error');
         return null;
       }
     } catch {
-      showToast('Could not check balance', 'error');
+      setFlowMsg('Could not check balance', 'error');
       return null;
     }
 
     // Send transaction
     try {
+      setFlowMsg('Sending transaction… approve in your wallet if prompted', 'info');
       showToast('Sending transaction...', 'warning');
       console.log('[Bribe] Calling eth_sendTransaction...', { from: address, to: TREASURY_ADDRESS, value: option.costWei });
       const result = await provider.request({
@@ -3709,15 +4118,18 @@ function setupBribeUI() {
       });
       console.log('[Bribe] Transaction result:', typeof result, String(result).slice(0, 100));
       if (typeof result === 'string' && result.startsWith('0x') && result.length === 66) {
+        setFlowMsg('Transaction sent — verifying on-chain…', 'info');
         showToast('Transaction sent!', 'success');
         return result;
       }
       console.warn('[Bribe] Unexpected result format:', result);
+      setFlowMsg('Transaction may have failed — check console', 'error');
       showToast('Transaction may have failed — check console', 'error');
       return null;
     } catch (err) {
       console.error('[Bribe] Full tx error:', err);
       const errMsg = (err.message || 'Unknown error').slice(0, 80);
+      setFlowMsg('Transaction failed: ' + errMsg, 'error');
       showToast('Transaction failed: ' + errMsg, 'error');
       return null;
     }
@@ -3739,9 +4151,8 @@ function setupBribeUI() {
       request = request.trim();
     }
 
-    modal.style.display = 'none';
-
-    // Sign transaction client-side, then submit with txHash
+    // Keep the modal open so users see what's happening; setFlowMsg drives feedback.
+    // Sign transaction client-side, then submit with txHash.
     const txHash = await signAndSendTransaction(option);
     if (!txHash) return;
 
@@ -3793,24 +4204,49 @@ function setupSpectatorOverlay() {
   }, 2000);
 }
 
-// Kill feed for spectator
+// Kill feed — top-right HUD, last few deaths, each entry auto-fades after KILL_FEED_TTL.
 const killFeed = [];
-function addKillFeedEntry(text) {
-  killFeed.push({ text, time: Date.now() });
-  if (killFeed.length > 5) killFeed.shift();
-  renderKillFeed();
+const KILL_FEED_MAX = 5;
+const KILL_FEED_TTL = 5000;
+
+const DEATH_VERBS = {
+  obstacle: 'crashed into a hazard',
+  lava: 'sank into the lava',
+  abyss: 'fell into the abyss',
+  void: 'plummeted into the void',
+  hazard_lava: 'was caught by the rising lava',
+  hazard_water: 'was swallowed by the rising tide',
+  hazard: 'was caught by the rising tide',
+};
+function deathVerb(cause) {
+  return DEATH_VERBS[cause] || 'died';
 }
 
-function renderKillFeed() {
+function addKillFeedEntry(text) {
+  const entry = { text, time: Date.now(), el: null };
+  killFeed.push(entry);
+  if (killFeed.length > KILL_FEED_MAX) {
+    const evicted = killFeed.shift();
+    evicted?.el?.remove();
+  }
   const container = document.getElementById('kill-feed');
   if (!container) return;
-  container.innerHTML = '';
-  for (const k of killFeed) {
-    const div = document.createElement('div');
-    div.className = 'kill-entry';
-    div.textContent = k.text;
-    container.appendChild(div);
-  }
+  const div = document.createElement('div');
+  div.className = 'kill-entry';
+  div.textContent = text;
+  container.appendChild(div);
+  entry.el = div;
+  // Auto-fade: 200ms ease-out, then remove
+  setTimeout(() => {
+    if (!entry.el) return;
+    entry.el.classList.add('kill-entry-fade');
+    setTimeout(() => {
+      entry.el?.remove();
+      entry.el = null;
+      const idx = killFeed.indexOf(entry);
+      if (idx >= 0) killFeed.splice(idx, 1);
+    }, 350);
+  }, KILL_FEED_TTL);
 }
 
 // ============================================
@@ -3871,6 +4307,75 @@ function getTwitterFields(user) {
     avatar: user.twitterAvatar || user.twitter_avatar,
     username: user.twitterUsername || user.twitter_username
   };
+}
+
+// Detect which login method this user authenticated with. Server-side now
+// stamps `loginMethod` on /api/auth/privy responses, but cached profiles or
+// DB-derived records (snake_case) may not have it — fall back to inference.
+function detectLoginMethod(user) {
+  if (!user) return null;
+  if (user.type === 'guest') return 'guest';
+  if (user.type !== 'authenticated') return null;
+  if (user.loginMethod) return user.loginMethod;
+  if (user.twitterUsername || user.twitter_username) return 'twitter';
+  if (user.emailAddress || user.email_address) return 'email';
+  if (user.externalWalletAddress || user.external_wallet_address) return 'wallet';
+  return 'authenticated';
+}
+
+function renderLoginMethodChip(user) {
+  const el = document.getElementById('wp-login-method');
+  if (!el) return;
+  const method = detectLoginMethod(user);
+  if (!method || method === 'guest') {
+    el.style.display = 'none';
+    return;
+  }
+  let label = 'Logged in';
+  let detail = '';
+  let cls = 'method-twitter';
+  if (method === 'twitter') {
+    label = 'Logged in via X';
+    const handle = user.twitterUsername || user.twitter_username;
+    if (handle) detail = `@${handle}`;
+    cls = 'method-twitter';
+  } else if (method === 'email') {
+    label = 'Logged in via Email';
+    const email = user.emailAddress || user.email_address;
+    if (email) detail = email;
+    cls = 'method-email';
+  } else if (method === 'wallet') {
+    label = 'Logged in via Wallet';
+    const ext = user.externalWalletAddress || user.external_wallet_address;
+    if (ext) detail = `${ext.slice(0, 6)}…${ext.slice(-4)}`;
+    cls = 'method-wallet';
+  } else {
+    label = 'Logged in';
+    cls = '';
+  }
+  el.className = `wp-login-method ${cls}`.trim();
+  el.innerHTML = detail
+    ? `${label}<span class="wp-method-detail">${detail}</span>`
+    : label;
+  el.style.display = 'inline-flex';
+}
+
+// Friendly display name for any user record — never leaks the raw did:privy:...
+// id even when the DB is offline and /api/me falls back to id-as-name.
+function friendlyDisplayName(user) {
+  if (!user) return 'Player';
+  const handle = user.twitterUsername || user.twitter_username;
+  if (handle) return handle;
+  const email = user.emailAddress || user.email_address;
+  if (email) return email.split('@')[0];
+  const ext = user.externalWalletAddress || user.external_wallet_address;
+  if (ext) return `${ext.slice(0, 6)}…${ext.slice(-4)}`;
+  const name = user.name || '';
+  if (name && !name.startsWith('did:privy:')) return name;
+  const id = user.id || '';
+  if (id.startsWith('did:privy:')) return `Player-${id.slice(-6)}`;
+  if (id.startsWith('guest-')) return `Guest-${id.split('-')[1]}`;
+  return name || 'Player';
 }
 
 function setAvatarSrc(imgEl, src) {
@@ -3934,11 +4439,13 @@ function populateWalletPanel(user) {
 
   // Header
   setAvatarSrc(document.getElementById('wp-pfp'), isAuthenticated ? twitter.avatar : null);
-  document.getElementById('wp-display-name').textContent = user.name || twitter.username || 'Player';
+  document.getElementById('wp-display-name').textContent = friendlyDisplayName(user);
   const usernameLabel = isAuthenticated && twitter.username
     ? `@${twitter.username}`
     : user.type === 'guest' ? 'Guest' : '';
   document.getElementById('wp-username').textContent = usernameLabel;
+
+  renderLoginMethodChip(user);
 
   const guestMsg = document.getElementById('wp-guest-msg');
   const tabsContainer = document.getElementById('wp-tabs-container');
@@ -4253,6 +4760,7 @@ async function init() {
 
   // Transition from login screen to game UI
   document.getElementById('login-screen').style.display = 'none';
+  stopLandingScene();
   if (isDebug) document.getElementById('ui').style.display = 'block';
   const controlsEl = document.getElementById('controls');
   controlsEl.style.display = 'block';

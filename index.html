@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Aether</title>
   <style>
     /* ============================================================
@@ -51,8 +54,32 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: var(--bg-void); font-family: system-ui, sans-serif; color: var(--text-primary); }
-    #game { width: 100vw; height: 100vh; }
+    html, body {
+      /* Match game canvas height so iOS Safari's collapsing URL bar doesn't
+         leave a cream-coloured band beneath the canvas. */
+      height: 100vh;
+      height: 100dvh;
+      overscroll-behavior: none;
+    }
+    body {
+      overflow: hidden;
+      background: var(--bg-void);
+      font-family: system-ui, sans-serif;
+      color: var(--text-primary);
+    }
+    #game {
+      width: 100vw;
+      height: 100vh;
+      /* Dynamic viewport height — accounts for Safari's collapsing chrome */
+      height: 100dvh;
+    }
+    /* Safe-area padding for fixed HUD elements (notch / home indicator) */
+    @supports (padding: env(safe-area-inset-top)) {
+      #ui { top: calc(20px + env(safe-area-inset-top)); left: calc(20px + env(safe-area-inset-left)); }
+      #controls { bottom: calc(20px + env(safe-area-inset-bottom)); }
+      #kill-feed { top: calc(80px + env(safe-area-inset-top)); right: calc(20px + env(safe-area-inset-right)); }
+      #debug-panel { top: calc(20px + env(safe-area-inset-top)); right: calc(20px + env(safe-area-inset-right)); }
+    }
     #ui {
       position: fixed;
       top: 20px;
@@ -104,13 +131,694 @@
     #login-screen {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1000;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--bg-void);
+      scroll-behavior: smooth;
+    }
+    #landing-bg-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+    #login-screen::before {
+      /* Dot grid + vignette pinned on top of the canvas so text stays legible */
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0) 0 0 / 18px 18px,
+        radial-gradient(ellipse at center, transparent 0%, rgba(7,8,13,0.55) 70%, rgba(7,8,13,0.85) 100%);
+    }
+    .landing-scroll {
+      position: relative;
+      z-index: 2;
       display: flex;
+      flex-direction: column;
+    }
+    .landing-hero {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
-      background:
-        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0 / 18px 18px,
-        var(--bg-void);
+      padding: 40px 20px 80px;
+      position: relative;
+    }
+    .hero-card {
+      text-align: center;
+      max-width: 720px;
+      width: 100%;
+      padding: 0 20px;
+      position: relative;
+      z-index: 3;
+    }
+    /* Small subdued chip — was bright acid before. Now a muted cyan dot + neutral text. */
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10.5px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.7);
+      padding: 5px 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      margin-bottom: 22px;
+      font-weight: 600;
+    }
+    .hero-eyebrow-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--aether-cyan);
+      box-shadow: 0 0 8px var(--aether-cyan);
+      animation: dotPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.85); }
+    }
+    /* The AETHER wordmark — solid display type, no background-clip tricks.
+       The base .brand-logo (used in smaller splash contexts) uses halftone-
+       into-fill via background-clip:text. That technique breaks at large sizes
+       when combined with drop-shadow filters, so the hero overrides it with
+       a solid fill + layered text-shadow for game-poster depth. */
+    .brand-logo-hero {
+      font-size: clamp(48px, 9vw, 96px) !important;
+      line-height: 0.95 !important;
+      letter-spacing: -2px;
+      margin: 0 0 18px !important;
+      background: none !important;
+      color: #f4f4f5 !important;
+      -webkit-text-fill-color: #f4f4f5;
+      -webkit-background-clip: border-box;
+              background-clip: border-box;
+      filter: none;
+      text-shadow:
+        0 2px 0 rgba(0,0,0,0.55),
+        0 0 26px rgba(0,240,255,0.22),
+        0 12px 30px rgba(0,0,0,0.55);
+    }
+    /* Optional ::after for a subtle chromatic-aberration arcade vibe — adds
+       a faint pink ghost a couple pixels offset behind the white fill. */
+    .brand-logo-hero {
+      position: relative;
+      display: inline-block;
+    }
+    .brand-logo-hero::after {
+      content: 'Aether';
+      position: absolute;
+      inset: 0;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      text-shadow:
+        2px 0 0 rgba(255,45,146,0.18),
+        -2px 0 0 rgba(0,240,255,0.18);
+      z-index: -1;
+      pointer-events: none;
+    }
+    .hero-tagline {
+      font-size: clamp(14px, 1.7vw, 17px);
+      color: rgba(255,255,255,0.65);
+      line-height: 1.6;
+      margin: 0 auto 30px;
+      max-width: 540px;
+    }
+    .text-accent-pink { color: var(--aether-pink); font-weight: 600; }
+    .text-accent-cyan { color: var(--aether-cyan); font-weight: 600; }
+    .hero-cta-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      max-width: 460px;
+      margin: 0 auto 28px;
+    }
+    .hero-cta-row .login-btn {
+      flex: 1 1 200px;
+      min-width: 180px;
+    }
+    /* Primary CTA — now an outlined acid-on-dark button instead of solid neon fill.
+       Pops without screaming. Solid fill kicks in on hover. */
+    .login-btn.primary {
+      background: rgba(212,255,0,0.06);
+      color: var(--aether-acid);
+      border: 1px solid rgba(212,255,0,0.55);
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-btn.primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--aether-acid), var(--aether-acid-deep));
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      z-index: -1;
+    }
+    .login-btn.primary:hover {
+      color: #0a0c12;
+      border-color: var(--aether-acid);
+    }
+    .login-btn.primary:hover::before { opacity: 1; }
+
+    /* Hero stat strip — adds gaming-HUD context below the CTAs */
+    .hero-stats {
+      list-style: none;
+      padding: 0;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      max-width: 520px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 4px;
+    }
+    .hero-stats li {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+    .hero-stats li + li::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .hero-stats strong {
+      display: block;
+      font-size: 18px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+      letter-spacing: -0.2px;
+      font-family: 'Fredoka', system-ui, sans-serif;
+    }
+    .hero-stats span {
+      display: block;
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-top: 2px;
+    }
+    @media (max-width: 540px) {
+      .hero-stats { padding: 12px 0; }
+      .hero-stats strong { font-size: 16px; }
+      .hero-stats span { font-size: 8.5px; letter-spacing: 1px; }
+    }
+
+    /* HUD corner brackets — pin to viewport corners on the hero only */
+    .hud-corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-color: rgba(255,255,255,0.25);
+      border-style: solid;
+      border-width: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .hud-corner-tl { top: 18px; left: 18px; border-top-width: 1px; border-left-width: 1px; }
+    .hud-corner-tr { top: 18px; right: 18px; border-top-width: 1px; border-right-width: 1px; }
+    .hud-corner-bl { bottom: 18px; left: 18px; border-bottom-width: 1px; border-left-width: 1px; }
+    .hud-corner-br { bottom: 18px; right: 18px; border-bottom-width: 1px; border-right-width: 1px; }
+    @media (max-width: 640px) {
+      .hud-corner { width: 18px; height: 18px; }
+      .hud-corner-tl, .hud-corner-tr { top: 12px; }
+      .hud-corner-bl, .hud-corner-br { bottom: 12px; }
+      .hud-corner-tl, .hud-corner-bl { left: 12px; }
+      .hud-corner-tr, .hud-corner-br { right: 12px; }
+    }
+    .landing-scroll-cue {
+      margin-top: 36px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255,255,255,0.55);
+      text-decoration: none;
+      font-size: 12px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      transition: color 0.2s;
+      cursor: pointer;
+    }
+    .landing-scroll-cue:hover { color: var(--aether-acid); }
+    .landing-arrow {
+      font-size: 18px;
+      animation: scrollBob 1.8s ease-in-out infinite;
+    }
+    @keyframes scrollBob {
+      0%, 100% { transform: translateY(0); opacity: 0.6; }
+      50%      { transform: translateY(6px); opacity: 1; }
+    }
+    .landing-section {
+      --section-accent: 255,255,255;
+      padding: 110px 24px 90px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      position: relative;
+    }
+    .section-violet { --section-accent: 139,92,246; }   /* How it works */
+    .section-acid   { --section-accent: 212,255,0; }    /* Built on 0G  */
+    .section-pink   { --section-accent: 255,45,146; }   /* Bribe        */
+    .landing-section-alt {
+      background: linear-gradient(180deg, rgba(20,24,34,0) 0%, rgba(20,24,34,0.55) 50%, rgba(20,24,34,0) 100%);
+      max-width: none;
+      padding-left: 24px; padding-right: 24px;
+    }
+    .landing-section-alt > * { max-width: 1100px; margin-left: auto; margin-right: auto; }
+
+    /* Numbered section marker: 01 ── HOW IT WORKS */
+    .section-marker {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      color: rgba(255,255,255,0.55);
+    }
+    .section-num {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(var(--section-accent), 1);
+      padding: 3px 9px;
+      border: 1px solid rgba(var(--section-accent), 0.45);
+      border-radius: 4px;
+      background: rgba(var(--section-accent), 0.08);
+    }
+    .section-rule {
+      flex: 0 1 60px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(var(--section-accent), 0.5), rgba(var(--section-accent), 0));
+    }
+    .section-tag {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(255,255,255,0.78);
+    }
+
+    /* Legacy eyebrow chip — kept for backwards compat but de-greened */
+    .landing-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(var(--section-accent), 1);
+      margin-bottom: 12px;
+      padding: 4px 10px;
+      border: 1px solid rgba(var(--section-accent), 0.4);
+      border-radius: 999px;
+      background: rgba(var(--section-accent), 0.07);
+    }
+    .landing-eyebrow strong { color: rgba(var(--section-accent), 1); }
+
+    .landing-section-title {
+      font-size: clamp(28px, 4.5vw, 44px);
+      line-height: 1.15;
+      margin: 0 0 16px;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+    }
+    .landing-section-title em {
+      font-style: normal;
+      color: rgba(var(--section-accent), 1);
+      /* Subtle underline accent under the highlighted word */
+      background: linear-gradient(180deg, transparent 70%, rgba(var(--section-accent), 0.25) 70%);
+      padding: 0 4px;
+    }
+    .landing-section-title strong { color: rgba(var(--section-accent), 1); font-weight: 700; }
+    .landing-section-lede {
+      font-size: clamp(14px, 1.6vw, 17px);
+      color: rgba(255,255,255,0.65);
+      max-width: 700px;
+      line-height: 1.6;
+      margin: 0 0 36px;
+    }
+    .landing-cards,
+    .landing-pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .landing-card,
+    .landing-pillar {
+      --card-accent: var(--section-accent);
+      background: rgba(20,24,34,0.55);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 22px;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
+      position: relative;
+    }
+    .landing-card::before,
+    .landing-pillar::before {
+      /* Top-left HUD tick — section accent */
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 18px; height: 18px;
+      border-top: 1px solid rgba(var(--card-accent), 0.5);
+      border-left: 1px solid rgba(var(--card-accent), 0.5);
+      border-top-left-radius: 12px;
+      pointer-events: none;
+    }
+    .landing-card:hover,
+    .landing-pillar:hover {
+      border-color: rgba(var(--card-accent), 0.32);
+      background: rgba(28,32,48,0.65);
+      transform: translateY(-2px);
+    }
+    .landing-card-icon {
+      font-size: 26px;
+      margin-bottom: 14px;
+      filter: drop-shadow(0 2px 8px rgba(var(--card-accent), 0.25));
+    }
+    .landing-card h3,
+    .landing-pillar h3 {
+      font-size: 16px;
+      margin: 0 0 8px;
+      color: var(--text-primary);
+      letter-spacing: -0.1px;
+    }
+    .landing-card p,
+    .landing-pillar p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.6);
+      margin: 0;
+    }
+
+    /* Per-pillar accent overrides — chain=cyan, compute=violet, storage=mint */
+    .pillar-cyan   { --card-accent: 0,240,255; }
+    .pillar-violet { --card-accent: 139,92,246; }
+    .pillar-mint   { --card-accent: 52,211,153; }
+    .pillar-cyan .landing-pillar-tag,
+    .pillar-violet .landing-pillar-tag,
+    .pillar-mint .landing-pillar-tag {
+      color: rgba(var(--card-accent), 1);
+      background: rgba(var(--card-accent), 0.1);
+      border: 1px solid rgba(var(--card-accent), 0.3);
+    }
+    .landing-pillar-tag {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(var(--card-accent), 1);
+      padding: 3px 9px;
+      border-radius: 4px;
+      background: rgba(var(--card-accent), 0.1);
+      border: 1px solid rgba(var(--card-accent), 0.3);
+      margin-bottom: 12px;
+    }
+    .landing-bribes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .landing-bribe {
+      background: rgba(20,24,34,0.55);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 16px 18px;
+      position: relative;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .landing-bribe::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 14px; bottom: 14px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(255,45,146,0.7), rgba(255,45,146,0.15));
+    }
+    .landing-bribe:hover {
+      border-color: rgba(255,45,146,0.28);
+      background: rgba(28,32,48,0.65);
+    }
+    .landing-bribe-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .landing-bribe-label {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+    /* Cost gets a subtle chip so it doesn't sit alone in heavy acid green */
+    .landing-bribe-cost {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      letter-spacing: 0.3px;
+    }
+    .landing-bribe-cost::before {
+      content: '◆';
+      color: var(--aether-acid);
+      margin-right: 6px;
+      font-size: 9px;
+      opacity: 0.85;
+    }
+    .landing-bribe p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.58);
+      margin: 0;
+      line-height: 1.55;
+    }
+    .landing-fineprint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+      letter-spacing: 0.2px;
+    }
+    /* Final CTA — outlined acid, fills on hover. Matches the hero primary. */
+    .landing-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 26px;
+      background: rgba(212,255,0,0.06);
+      color: var(--aether-acid);
+      border: 1px solid rgba(212,255,0,0.55);
+      font-weight: 700;
+      font-size: 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+    .landing-cta:hover {
+      background: var(--aether-acid);
+      color: #0a0c12;
+    }
+    .landing-footer {
+      text-align: center;
+      padding: 36px 20px 60px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .landing-footer a { color: var(--aether-acid); text-decoration: none; }
+    .landing-footer a:hover { text-decoration: underline; }
+    /* Compact landing on mobile so the hero card is reachable */
+    @media (max-width: 640px) {
+      .landing-section { padding: 60px 18px; }
+      .landing-card, .landing-pillar { padding: 18px; }
+    }
+
+    /* === Theme toggle (top-right of the landing) === */
+    #theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1400;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px 7px 11px;
+      background: rgba(0,0,0,0.55);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+      font-family: 'Fredoka', system-ui, sans-serif;
+    }
+    #theme-toggle:hover {
+      background: rgba(0,0,0,0.75);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .theme-toggle-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: inset 0 0 0 2px #07080d;
+      transition: background 0.2s;
+    }
+    /* Color-mode lights the dot up with a brand gradient */
+    #login-screen:not(.theme-mono) .theme-toggle-dot {
+      background: conic-gradient(from 0deg, var(--aether-acid), var(--aether-cyan), var(--aether-pink), var(--aether-acid));
+      box-shadow: 0 0 8px rgba(255,255,255,0.4);
+    }
+
+    /* === MONO THEME — neutral whites/greys, no chroma ===
+       Forces every accent (--section-accent, --card-accent, pink/acid/cyan
+       references) onto a single white scale. Toggling .theme-mono off
+       restores the original brand palette via the existing rules above. */
+    #login-screen.theme-mono .landing-section { --section-accent: 255,255,255; }
+    #login-screen.theme-mono .pillar-cyan,
+    #login-screen.theme-mono .pillar-violet,
+    #login-screen.theme-mono .pillar-mint { --card-accent: 255,255,255; }
+
+    /* Hero pink word becomes a brighter neutral so it still pops */
+    #login-screen.theme-mono .text-accent-pink {
+      color: rgba(255,255,255,0.92);
+      font-weight: 700;
+    }
+    /* AETHER wordmark — drop the cyan ghost shadow + chromatic split */
+    #login-screen.theme-mono .brand-logo-hero {
+      text-shadow:
+        0 2px 0 rgba(0,0,0,0.55),
+        0 0 26px rgba(255,255,255,0.12),
+        0 12px 30px rgba(0,0,0,0.55) !important;
+    }
+    #login-screen.theme-mono .brand-logo-hero::after {
+      text-shadow:
+        2px 0 0 rgba(255,255,255,0.10),
+        -2px 0 0 rgba(255,255,255,0.10);
+    }
+    /* Sign In CTA — white outline on dark, fills white on hover */
+    #login-screen.theme-mono .login-btn.primary {
+      background: rgba(255,255,255,0.04);
+      color: #f4f4f5;
+      border: 1px solid rgba(255,255,255,0.45);
+    }
+    #login-screen.theme-mono .login-btn.primary::before {
+      background: linear-gradient(135deg, #f4f4f5, #cfd3e0);
+    }
+    #login-screen.theme-mono .login-btn.primary:hover { color: #07080d; }
+
+    /* Bribe card pink rail becomes white-fade */
+    #login-screen.theme-mono .landing-bribe::before {
+      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.08));
+    }
+    #login-screen.theme-mono .landing-bribe:hover {
+      border-color: rgba(255,255,255,0.22);
+    }
+    /* Bribe cost diamond — drop the acid green */
+    #login-screen.theme-mono .landing-bribe-cost::before { color: rgba(255,255,255,0.6); }
+
+    /* Final CTA — same outlined treatment as Sign In */
+    #login-screen.theme-mono .landing-cta {
+      background: rgba(255,255,255,0.04);
+      color: #f4f4f5;
+      border-color: rgba(255,255,255,0.5);
+    }
+    #login-screen.theme-mono .landing-cta:hover {
+      background: #f4f4f5;
+      color: #07080d;
+      border-color: #f4f4f5;
+    }
+    /* Section title <em> highlight — neutralise the background block */
+    #login-screen.theme-mono .landing-section-title em {
+      color: #fff;
+      background: linear-gradient(180deg, transparent 70%, rgba(255,255,255,0.18) 70%);
+    }
+    /* Footer link */
+    #login-screen.theme-mono .landing-footer a { color: rgba(255,255,255,0.85); }
+
+    /* === Login modal — opens from "Sign In to Play" on the hero === */
+    #login-modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      background: rgba(7,8,13,0.75);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    #login-modal-overlay.show {
+      display: flex !important;
+      opacity: 1;
+    }
+    #login-modal-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 32px 28px 28px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+      transform: translateY(8px) scale(0.98);
+      transition: transform 0.2s ease;
+    }
+    #login-modal-overlay.show #login-modal-card {
+      transform: translateY(0) scale(1);
+    }
+    .login-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.5);
+      font-size: 24px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      line-height: 32px;
+      border-radius: 50%;
+      transition: background 0.15s, color 0.15s;
+    }
+    .login-modal-close:hover {
+      background: rgba(255,255,255,0.08);
+      color: white;
+    }
+    .login-modal-title {
+      font-size: 22px;
+      margin: 0 0 4px;
+      color: var(--text-primary);
+    }
+    .login-modal-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0 0 22px;
     }
     .login-container {
       text-align: center;
@@ -154,6 +862,10 @@
       border: 1px solid rgba(255,255,255,0.15);
     }
     .login-btn.guest:hover { background: rgba(255,255,255,0.15); }
+    .login-btn.email-wallet {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      color: white;
+    }
     .login-btn.continue {
       background: linear-gradient(135deg, var(--aether-mint), #27ae60);
       color: white;
@@ -739,25 +1451,40 @@
     }
     #kill-feed {
       position: fixed;
-      top: 20px;
-      right: 200px;
-      width: 250px;
-      z-index: 200;
+      top: 80px;
+      right: 20px;
+      width: 280px;
+      z-index: 220;
       text-align: right;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     .kill-entry {
-      background: rgba(0,0,0,0.7);
-      color: #e74c3c;
-      padding: 4px 10px;
-      margin-bottom: 3px;
+      background: rgba(0,0,0,0.72);
+      color: #ffdada;
+      padding: 5px 11px;
       border-radius: 4px;
       font-size: 12px;
-      font-weight: bold;
-      animation: killFadeIn 0.3s ease;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      border-left: 3px solid #e74c3c;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      animation: killFadeIn 0.28s ease;
+      transition: opacity 0.32s ease, transform 0.32s ease;
+    }
+    .kill-entry-fade {
+      opacity: 0;
+      transform: translateX(16px);
     }
     @keyframes killFadeIn {
       from { opacity: 0; transform: translateX(20px); }
       to { opacity: 1; transform: translateX(0); }
+    }
+    @media (max-width: 768px) {
+      #kill-feed { top: 60px; right: 10px; width: 200px; }
+      .kill-entry { font-size: 11px; padding: 4px 8px; }
     }
     /* Debug panel */
     #debug-panel {
@@ -868,6 +1595,45 @@
       color: #888;
       margin-top: 2px;
     }
+    .bribe-option[disabled], .bribe-option.bribe-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .bribe-opt-warn {
+      width: 100%;
+      font-size: 10px;
+      color: var(--aether-coral);
+      margin-top: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    #bribe-status {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #c8cbd3;
+      line-height: 1.5;
+    }
+    #bribe-status.warn { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.08); }
+    #bribe-status.ok   { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.07); }
+    #bribe-status a { color: var(--aether-acid); text-decoration: underline; }
+    #bribe-status .bribe-status-bal { font-weight: 700; color: var(--aether-acid); }
+    #bribe-flow-msg {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: none;
+    }
+    #bribe-flow-msg.show { display: block; }
+    #bribe-flow-msg.info  { background: rgba(139,92,246,0.18); color: #d2c5ff; }
+    #bribe-flow-msg.error { background: rgba(231,76,60,0.18); color: #ffd0d0; }
+    #bribe-flow-msg.ok    { background: rgba(52,211,153,0.18); color: #d4ffe6; }
     /* Toast notifications */
     #toast-container {
       position: fixed;
@@ -941,6 +1707,40 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    /* Login-method chip below the wallet header */
+    .wp-login-method {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 8px 0 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-secondary);
+      max-width: fit-content;
+    }
+    .wp-login-method::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .wp-login-method.method-twitter { color: #1d9bf0; border-color: rgba(29,155,240,0.35); background: rgba(29,155,240,0.08); }
+    .wp-login-method.method-email   { color: #8b5cf6; border-color: rgba(139,92,246,0.35); background: rgba(139,92,246,0.08); }
+    .wp-login-method.method-wallet  { color: var(--aether-acid); border-color: rgba(212,255,0,0.35); background: rgba(212,255,0,0.08); }
+    .wp-login-method .wp-method-detail {
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 500;
+      opacity: 0.8;
+      font-size: 11px;
     }
     /* Profile Button */
     #profile-btn {
@@ -1738,42 +2538,153 @@
   </style>
 </head>
 <body>
-  <div id="login-screen">
-    <!-- Phase 1: Loading splash (visible by default) -->
-    <div id="login-splash" class="login-container">
-      <h1 class="brand-logo">Aether</h1>
-      <p class="login-subtitle">The Aetherist awaits...</p>
-      <div class="login-loader">
-        <div class="loader-spinner"></div>
-        <p class="login-status">Loading...</p>
-      </div>
+  <div id="login-screen" class="theme-mono">
+    <canvas id="landing-bg-canvas"></canvas>
+    <button id="theme-toggle" type="button" aria-label="Toggle color theme">
+      <span class="theme-toggle-dot"></span>
+      <span class="theme-toggle-label">MONO</span>
+    </button>
+    <div class="landing-scroll">
+      <section class="landing-hero">
+        <span class="hud-corner hud-corner-tl" aria-hidden="true"></span>
+        <span class="hud-corner hud-corner-tr" aria-hidden="true"></span>
+        <span class="hud-corner hud-corner-bl" aria-hidden="true"></span>
+        <span class="hud-corner hud-corner-br" aria-hidden="true"></span>
+        <!-- Phase 1: Loading splash (visible by default) -->
+        <div id="login-splash" class="hero-card">
+          <h1 class="brand-logo brand-logo-hero">Aether</h1>
+          <p class="hero-tagline">A 3D multiplayer arena built live by <span class="text-accent-pink">The Aetherist</span> — an autonomous agent that runs on the AI Layer-1.</p>
+          <div class="login-loader">
+            <div class="loader-spinner"></div>
+            <p class="login-status">Loading...</p>
+          </div>
+        </div>
+        <!-- Phase 2: Hero CTA (hidden until Privy is ready) -->
+        <div id="login-buttons-container" class="hero-card" style="display:none">
+          <h1 class="brand-logo brand-logo-hero">Aether</h1>
+          <p class="hero-tagline">A 3D multiplayer arena built live by <span class="text-accent-pink">The Aetherist</span> — an autonomous agent that runs on the AI Layer-1.</p>
+          <div class="hero-cta-row">
+            <button id="btn-open-login" class="login-btn primary">Sign In to Play</button>
+            <button id="btn-guest" class="login-btn guest">Play as Guest</button>
+          </div>
+          <p id="login-status" class="login-status"></p>
+          <ul class="hero-stats" aria-label="Game stats">
+            <li><strong>17</strong><span>Arenas</span></li>
+            <li><strong>6</strong><span>Game modes</span></li>
+            <li><strong>30+</strong><span>Agent tools</span></li>
+            <li><strong>0G</strong><span>Native bribes</span></li>
+          </ul>
+        </div>
+        <a href="#how" class="landing-scroll-cue" aria-label="Scroll for more">
+          <span>What is Aether?</span>
+          <span class="landing-arrow">↓</span>
+        </a>
+      </section>
+
+      <section id="how" class="landing-section section-violet">
+        <div class="section-marker"><span class="section-num">01</span><span class="section-rule"></span><span class="section-tag">How it works</span></div>
+        <h2 class="landing-section-title">An AI builds the game <em>live</em></h2>
+        <p class="landing-section-lede">Aether is a 3D multiplayer arena where the game master isn't a script — it's an AI that builds the game live around you.</p>
+        <div class="landing-cards">
+          <div class="landing-card">
+            <div class="landing-card-icon" aria-hidden="true">&#x1F52E;</div>
+            <h3>The Aetherist composes</h3>
+            <p>An autonomous agent picks templates, spawns creatures, casts spells, and starts mini-games — all in real time, reacting to who's playing and what they say in chat.</p>
+          </div>
+          <div class="landing-card">
+            <div class="landing-card-icon" aria-hidden="true">&#x1F3AE;</div>
+            <h3>Six game modes, seventeen arenas</h3>
+            <p>King of the Hill. Hot Potato. Race. Reach the Goal. Collect. Survival. Each mini-game spins up in seconds with physics-altering spells thrown in for chaos.</p>
+          </div>
+          <div class="landing-card">
+            <div class="landing-card-icon" aria-hidden="true">&#x1F4AC;</div>
+            <h3>Talk to the agent</h3>
+            <p>Tag <strong>@agent</strong> in chat — "spawn a giant spider", "make the floor lava", "flip gravity". The Aetherist hears you and decides if your wish becomes reality.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="zerog" class="landing-section landing-section-alt section-acid">
+        <div class="section-marker"><span class="section-num">02</span><span class="section-rule"></span><span class="section-tag">Built on 0G</span></div>
+        <h2 class="landing-section-title">A game master that <em>lives</em> on the AI Layer-1</h2>
+        <p class="landing-section-lede">Most "AI in a game" projects ship an LLM in a box. Aether is different — every layer touches 0G, end to end.</p>
+        <div class="landing-pillars">
+          <div class="landing-pillar pillar-cyan">
+            <div class="landing-pillar-tag">0G · Chain</div>
+            <h3>One wallet for humans and AI alike</h3>
+            <p>Player bribes settle as native <strong>0G</strong> transfers on Galileo testnet. Verified server-side by <code>viem</code> against on-chain state — no oracles, no off-chain trust.</p>
+          </div>
+          <div class="landing-pillar pillar-violet">
+            <div class="landing-pillar-tag">0G · Compute</div>
+            <h3>The Aetherist thinks on-chain</h3>
+            <p>The agent's reasoning runs on <strong>0G's decentralized inference network</strong>. Every prompt is a signed request through the 0G serving broker; the Aetherist pays for its own compute from the same wallet that holds bribes.</p>
+          </div>
+          <div class="landing-pillar pillar-mint">
+            <div class="landing-pillar-tag">0G · Storage</div>
+            <h3>Replays + memory, addressable forever</h3>
+            <p>Every game result and agent memory snapshot uploads to <strong>0G Storage</strong>, returning a rootHash that anyone can reference. Sessions don't die — they get archived.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="bribe" class="landing-section section-pink">
+        <div class="section-marker"><span class="section-num">03</span><span class="section-rule"></span><span class="section-tag">Bribe the Aetherist</span></div>
+        <h2 class="landing-section-title">Pay. <em>Bend</em> the game.</h2>
+        <p class="landing-section-lede">The Aetherist is corruptible. Send a small amount of native 0G, and the next thing on screen might be yours to choose.</p>
+        <div class="landing-bribes">
+          <div class="landing-bribe">
+            <div class="landing-bribe-row">
+              <span class="landing-bribe-label">Spawn Obstacles</span>
+              <span class="landing-bribe-cost">0.002 0G</span>
+            </div>
+            <p>Drop hazards near rival players. Watch them rage in chat.</p>
+          </div>
+          <div class="landing-bribe">
+            <div class="landing-bribe-row">
+              <span class="landing-bribe-label">Turn Floor to Lava</span>
+              <span class="landing-bribe-cost">0.005 0G</span>
+            </div>
+            <p>The arena floor becomes deadly. Survive by staying airborne.</p>
+          </div>
+          <div class="landing-bribe">
+            <div class="landing-bribe-row">
+              <span class="landing-bribe-label">Cast Random Spell</span>
+              <span class="landing-bribe-cost">0.001 0G</span>
+            </div>
+            <p>Gravity flips. Speed boosts. Bouncy world. Chaos roulette.</p>
+          </div>
+          <div class="landing-bribe">
+            <div class="landing-bribe-row">
+              <span class="landing-bribe-label">Custom Request</span>
+              <span class="landing-bribe-cost">0.01 0G</span>
+            </div>
+            <p>Free-text whatever you want. The Aetherist may honor, queue, or refuse.</p>
+          </div>
+        </div>
+        <p class="landing-fineprint">Bribes are verified on-chain. Replay-protected. The agent reads, decides, and explains itself in chat.</p>
+        <a href="#top" class="landing-cta">Sign in to play <span aria-hidden="true">↑</span></a>
+      </section>
+
+      <footer class="landing-footer">
+        Aether · Built for <a href="https://0g.ai/arena/zero-cup" target="_blank" rel="noopener">0G Zero Cup</a> · MIT
+      </footer>
     </div>
-    <!-- Phase 2: Login buttons (hidden until ready) -->
-    <div id="login-buttons-container" class="login-container" style="display:none">
-      <h1 class="brand-logo">Aether</h1>
-      <p class="login-subtitle">The Aetherist awaits...</p>
-      <div class="login-buttons">
-        <button id="btn-continue" class="login-btn continue" style="display:none">Continue</button>
-        <button id="btn-twitter-login" class="login-btn twitter" disabled>
-          <span class="btn-spinner"></span> Loading Twitter...
-        </button>
-        <button id="btn-guest" class="login-btn guest">Play as Guest</button>
-        <button id="btn-signout" class="login-link" style="display:none">Sign out & switch account</button>
-      </div>
-      <p id="login-status" class="login-status"></p>
-      <div class="login-onboarding">
-        <h3>How it works</h3>
-        <div class="onboard-item">
-          <div class="onboard-icon">&#x1F52E;</div>
-          <div class="onboard-text"><strong>An AI builds the game live.</strong> The Aetherist spawns arenas, obstacles, and mini-games in real-time.</div>
-        </div>
-        <div class="onboard-item">
-          <div class="onboard-icon">&#x1F3AE;</div>
-          <div class="onboard-text"><strong>Wait for games to start</strong> or chat <strong>@agent</strong> to ask for things &mdash; "spawn a giant spider", "make lava floor"</div>
-        </div>
-        <div class="onboard-item">
-          <div class="onboard-icon">&#x1F4B0;</div>
-          <div class="onboard-text"><strong>Bribe the Aetherist</strong> with tokens to get special favors, spells, or chaos on demand.</div>
+
+    <!-- Login modal — opens from the Sign In CTA on the hero -->
+    <div id="login-modal-overlay" style="display:none" aria-hidden="true">
+      <div id="login-modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+        <button id="login-modal-close" class="login-modal-close" aria-label="Close">&times;</button>
+        <h2 id="login-modal-title" class="login-modal-title">Sign in to Aether</h2>
+        <p class="login-modal-sub">Pick how you want to enter the arena.</p>
+        <div class="login-buttons">
+          <button id="btn-continue" class="login-btn continue" style="display:none">Continue</button>
+          <button id="btn-twitter-login" class="login-btn twitter" disabled>
+            <span class="btn-spinner"></span> Loading Twitter...
+          </button>
+          <button id="btn-email-wallet-login" class="login-btn email-wallet" disabled>
+            <span class="btn-spinner"></span> Loading…
+          </button>
+          <button id="btn-signout" class="login-link" style="display:none">Sign out & switch account</button>
         </div>
       </div>
     </div>
@@ -1858,6 +2769,7 @@
         <div id="wp-username" class="wp-username"></div>
       </div>
     </div>
+    <div id="wp-login-method" class="wp-login-method" style="display:none"></div>
     <div id="wp-guest-msg" class="wp-guest-msg" style="display:none">
       Login with Twitter to unlock your wallet
     </div>
@@ -1910,7 +2822,9 @@
         <h3>Bribe the Aetherist</h3>
         <button id="bribe-close" class="bribe-modal-close">&times;</button>
       </div>
+      <div id="bribe-status"></div>
       <div id="bribe-options-list"></div>
+      <div id="bribe-flow-msg"></div>
     </div>
   </div>
   <div id="debug-panel" style="display:none">
@@ -1932,8 +2846,8 @@
       <div class="drama-bar"><div id="drama-fill"></div></div>
       <div class="drama-label"><span>Calm</span><span id="drama-value">0</span><span>CHAOS</span></div>
     </div>
-    <div id="kill-feed"></div>
   </div>
+  <div id="kill-feed"></div>
   <button id="help-btn" title="How to play">? How to Play</button>
 
   <!-- 0G integration credit — visible in-game so observers see the chain in play -->

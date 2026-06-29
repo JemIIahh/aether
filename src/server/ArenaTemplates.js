@@ -827,6 +827,18 @@ function getDifficulty(round) {
   return            { posJitter: 1.0,  decoJitter: 1.5, speedMin: 0.75, speedRange: 0.60, hazardMul: 1.0,  hazardSpeedMul: 1.15, platformBuff: 1.0,  gapPull: 0.0 };
 }
 
+// Global arena-spread multiplier — pushes all positions outward and bumps
+// platform X/Z size so each arena fills the cinematic world space instead of
+// looking like a postage stamp floating in the void. Y (vertical) is left
+// alone so jump arcs, obstacle heights, and hazard rise dynamics stay tuned.
+//
+// Calibration note: spread × position grows GAPS between platforms; buff
+// only grows platform width. If spread runs ahead of buff, gaps explode and
+// authored jumps become unreachable. Keep (spread - 1) < (buff - 1), and
+// re-test spiral_tower + parkour_hell after touching these.
+const ARENA_SPREAD = 1.25;         // horizontal position multiplier
+const ARENA_PLATFORM_BUFF = 1.40;  // platform X/Z size multiplier (traversal)
+
 // Deep-clone and randomize a template. Difficulty ramps with `opts.round`
 // so the first round is gentle (no position jitter, slow obstacles, soft
 // hazard) and later rounds reach full chaos-arena variance.
@@ -910,6 +922,34 @@ export function randomizeTemplate(template, opts = {}) {
         tmpl.hazardPlane.startHeight -= (1 - d.hazardMul) * 4;
       }
     }
+  }
+
+  // === ARENA SPREAD pass ===
+  // Expand the arena footprint so it fills the cinematic world instead of
+  // sitting like a small island in a vast empty space. Pushes every X/Z
+  // position outward by ARENA_SPREAD and bumps platform X/Z sizes so jumps
+  // stay reachable. Y (vertical) untouched — jump arcs and hazard plane stay
+  // tuned. Goal, respawn, and hazard radius scale with the world.
+  for (const entity of tmpl.entities) {
+    if (Array.isArray(entity.position) && entity.position.length === 3) {
+      entity.position[0] *= ARENA_SPREAD;
+      entity.position[2] *= ARENA_SPREAD;
+    }
+    if (entity.type === 'platform' && Array.isArray(entity.size) && entity.size.length === 3) {
+      entity.size[0] *= ARENA_PLATFORM_BUFF;
+      entity.size[2] *= ARENA_PLATFORM_BUFF;
+    }
+  }
+  if (Array.isArray(tmpl.goalPosition) && tmpl.goalPosition.length === 3) {
+    tmpl.goalPosition[0] *= ARENA_SPREAD;
+    tmpl.goalPosition[2] *= ARENA_SPREAD;
+  }
+  if (Array.isArray(tmpl.respawnPoint) && tmpl.respawnPoint.length === 3) {
+    tmpl.respawnPoint[0] *= ARENA_SPREAD;
+    tmpl.respawnPoint[2] *= ARENA_SPREAD;
+  }
+  if (tmpl.hazardPlane && typeof tmpl.hazardPlane.radius === 'number') {
+    tmpl.hazardPlane.radius *= ARENA_SPREAD;
   }
 
   return tmpl;
