@@ -3512,9 +3512,33 @@ async function connectToServer() {
 // ============================================
 const clock = new THREE.Clock();
 
+// Crash protection: any uncaught error inside the render loop would
+// otherwise kill animation entirely and freeze the game. Counts errors so
+// we can detect a runaway loop (same error every frame) and stop spamming
+// the console. Renders the previous frame's state on error so the screen
+// doesn't freeze visually either.
+let _animateErrorCount = 0;
+let _animateLastErrorTime = 0;
+
 function animate() {
   requestAnimationFrame(animate);
+  try {
+    animateFrame();
+  } catch (err) {
+    _animateErrorCount += 1;
+    const now = Date.now();
+    // Throttle logging: at most once per second, but always log the first 3
+    if (_animateErrorCount <= 3 || now - _animateLastErrorTime > 1000) {
+      console.error('[Animate] frame error (count=' + _animateErrorCount + '):', err);
+      _animateLastErrorTime = now;
+    }
+    // Last-resort: still render whatever state we have so the screen
+    // doesn't go black on a transient error.
+    try { renderFrame(); } catch { /* renderer itself dying — give up gracefully */ }
+  }
+}
 
+function animateFrame() {
   const delta = clock.getDelta();
   const time = performance.now() / 1000;
 
@@ -4807,6 +4831,17 @@ async function showArenaLobby() {
 // ============================================
 // Init
 // ============================================
+// Global error nets — any uncaught exception or unhandled promise rejection
+// from anywhere in the client gets logged once instead of silently freezing
+// the page. Don't preventDefault on errors — let DevTools still see them
+// the normal way.
+window.addEventListener('error', (ev) => {
+  console.error('[Global] Uncaught error:', ev.error || ev.message, 'at', ev.filename + ':' + ev.lineno);
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  console.error('[Global] Unhandled promise rejection:', ev.reason);
+});
+
 async function init() {
   console.log('[Game] Initializing...');
 
