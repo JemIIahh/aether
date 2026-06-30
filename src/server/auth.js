@@ -93,8 +93,12 @@ export async function verifyPrivyToken(accessToken) {
   }
 }
 
-export function signToken(userId) {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+export function signToken(userId, identity = {}) {
+  // Embed display identity in our session JWT so /api/me can return the
+  // user's real name even when the DB is offline AND the in-memory cache
+  // is empty (e.g. after a server restart). Without this, refreshes after
+  // a server reboot collapse the user back to "Player-{last 6 of DID}".
+  return jwt.sign({ userId, ...identity }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 }
 
 export function verifyToken(token) {
@@ -111,19 +115,30 @@ function parseBearerToken(req) {
   return verifyToken(header.slice(7));
 }
 
+function userFromPayload(payload) {
+  return {
+    id: payload.userId,
+    name: payload.name || null,
+    type: payload.type || null,
+    twitterUsername: payload.twitterUsername || null,
+    twitterAvatar: payload.twitterAvatar || null,
+    walletAddress: payload.walletAddress || null,
+  };
+}
+
 export function requireAuth(req, res, next) {
   const payload = parseBearerToken(req);
   if (!payload) {
     return res.status(401).json({ error: 'Authorization required' });
   }
-  req.user = { id: payload.userId };
+  req.user = userFromPayload(payload);
   next();
 }
 
 export function optionalAuth(req, res, next) {
   const payload = parseBearerToken(req);
   if (payload) {
-    req.user = { id: payload.userId };
+    req.user = userFromPayload(payload);
   }
   next();
 }

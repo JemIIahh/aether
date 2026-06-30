@@ -34,6 +34,13 @@ export class GameRoom extends Room {
   _chatRateLimit = new Map();
   _deathTimestamps = new Map();
 
+  // Rejoin grace: when a logged-in user disconnects mid-round (browser refresh,
+  // wifi blip), remember their last in-game state for a short window so they
+  // come back into play instead of being forced into spectator-until-next-round.
+  // Keyed by userId (not sessionId — the new connection gets a fresh sessionId).
+  _recentLeavers = new Map();
+  static REJOIN_GRACE_MS = 60_000;
+
   // Convenience accessors
   get worldState() { return this.arena?.worldState || null; }
   get currentMiniGame() { return this.arena?.currentMiniGame || null; }
@@ -288,7 +295,13 @@ export class GameRoom extends Room {
   }
 
   onJoin(client, options) {
-    const name = options.name || `Player-${client.sessionId.slice(0, 4)}`;
+    const rawName = options.name || `Player-${client.sessionId.slice(0, 4)}`;
+    // Never let a raw Privy DID through as a player's display name. The DB
+    // fallback path on /api/me previously leaked it; sanitize at the door so
+    // chat and "X has entered the arena" stay readable regardless of source.
+    const name = rawName.startsWith('did:privy:')
+      ? `Player-${rawName.slice(-6)}`
+      : rawName;
     const payload = options.token ? verifyToken(options.token) : null;
     const userId = payload?.userId ?? client.sessionId;
     const type = options.type || (payload ? 'authenticated' : 'human');
@@ -310,6 +323,17 @@ export class GameRoom extends Room {
     let initialState = 'alive';
     if (isUrlSpectator || (isGameActive && isHuman)) {
       initialState = 'spectating';
+    }
+
+    // Rejoin grace: if this user disconnected within the last REJOIN_GRACE_MS
+    // and the game is still active, restore them as a player. Refreshing the
+    // browser mid-round should not punt you to spectator.
+    const recent = this._recentLeavers.get(userId);
+    if (recent && isGameActive && isHuman && !isUrlSpectator) {
+      if (Date.now() - recent.leftAt < GameRoom.REJOIN_GRACE_MS) {
+        initialState = recent.state === 'spectating' ? 'spectating' : 'alive';
+      }
+      this._recentLeavers.delete(userId);
     }
 
     const player = this.worldState.addPlayer(client.sessionId, name, type, initialState, userId);
@@ -349,6 +373,22 @@ export class GameRoom extends Room {
 
     const player = this.worldState.players.get(client.sessionId);
     const name = player?.name || client.sessionId;
+
+    // Stash state for rejoin grace — only for authenticated humans, not AI
+    // or URL spectators. Guests share a session-bound userId too, so they
+    // benefit from this on a quick refresh as well.
+    if (player && player.userId && player.type !== 'ai') {
+      this._recentLeavers.set(player.userId, {
+        leftAt: Date.now(),
+        state: player.state || 'alive',
+        name,
+      });
+      // Garbage collect old entries opportunistically
+      const cutoff = Date.now() - GameRoom.REJOIN_GRACE_MS;
+      for (const [uid, entry] of this._recentLeavers) {
+        if (entry.leftAt < cutoff) this._recentLeavers.delete(uid);
+      }
+    }
 
     this.worldState.removePlayer(client.sessionId);
     this.broadcast('player_left', { id: client.sessionId, name });
