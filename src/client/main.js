@@ -167,10 +167,14 @@ scene.background = new THREE.Color(0x2a2a4e);
 // platforms stay visible.
 scene.fog = new THREE.FogExp2(0x07080d, 0.006);
 
-// FOV 70° — confident third-person feel; wider FOVs (78-85) shrank the
+// FOV 74° — slightly wider than the old 70 to fit more arena in frame at the
+// default distance. Still narrow enough to keep the player feeling close-up,
+// not fish-eye distorted. Combined with the higher pitch + further follow
+// distance below, the default in-game shot now shows the player AND what's
+// in front of them on the same screen. Confident third-person feel; wider FOVs (78-85) shrank the
 // player on screen and exaggerated depth, which made jumps hard to read.
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 6, 12);
+const camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 7.5, 14);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -315,12 +319,16 @@ const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || win
 // Mouse Look Camera
 // ============================================
 let cameraYaw = 0;
-// Higher pitch (~20°) puts more of the upcoming path in view so the player
-// can see the next platform under them while jumping.
-let cameraPitch = 0.35;
-// Desired follow distance (player taste). The raycaster pull-back below
-// shortens this on the fly when a platform / obstacle would clip the camera.
-let cameraDistance = isMobile ? 11.5 : 8.5;
+// Higher pitch (~26°) puts more of the upcoming path in view so the player
+// can see the next platform under them while jumping. The old 0.35 (20°)
+// was too low and made the player blob fill too much of the screen, hiding
+// what's ahead.
+let cameraPitch = 0.46;
+// Desired follow distance. Bumped from 8.5 → 10 on desktop so the player
+// doesn't dominate the frame and the next platform is always visible.
+// The raycaster pull-back below still shortens this on the fly when a
+// platform / obstacle would clip the camera.
+let cameraDistance = isMobile ? 12.5 : 10;
 // Effective distance after collision pull-back — eased over frames so we
 // don't snap in/out when grazing edges.
 let _cameraEffectiveDist = cameraDistance;
