@@ -2584,13 +2584,29 @@ function updateRemotePlayer(player) {
 
 function removeRemotePlayer(id) {
   const mesh = remotePlayers.get(id);
-  if (mesh) {
-    scene.remove(mesh);
-    mesh.geometry.dispose();
-    mesh.material.dispose();
-    remotePlayers.delete(id);
-    console.log(`[Remote] Removed player: ${id}`);
-  }
+  if (!mesh) return;
+  scene.remove(mesh);
+  // Remote players are THREE.Groups containing a body mesh, eyes, and a
+  // name sprite. The old code called mesh.geometry.dispose() directly,
+  // which throws on a Group (no .geometry / .material). The throw bailed
+  // out before remotePlayers.delete(id), leaving a stale map entry that
+  // subsequent player_moved updates kept "alive" — the ghost double the
+  // user saw in playtest screenshots. Traverse and dispose every child
+  // resource defensively.
+  mesh.traverse((node) => {
+    if (node.geometry) {
+      try { node.geometry.dispose(); } catch { /* already disposed */ }
+    }
+    if (node.material) {
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      for (const m of mats) {
+        if (m?.map) { try { m.map.dispose(); } catch { /* no-op */ } }
+        try { m?.dispose?.(); } catch { /* no-op */ }
+      }
+    }
+  });
+  remotePlayers.delete(id);
+  console.log(`[Remote] Removed player: ${id}`);
 }
 
 // ============================================
