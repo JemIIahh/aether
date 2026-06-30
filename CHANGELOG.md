@@ -2,6 +2,65 @@
 
 All notable changes to Aether are documented here. Each entry includes: what changed, why, and which files moved.
 
+## [0.3.0] — 2026-06-30 · R3 · Judge-ready arena
+
+Everything between R2 (0G Compute online) and now, in one list.
+
+### Player-facing
+
+- 3D landing page with scrolling sections — Concept, How It Works, Built on 0G, Bribe the Aetherist
+- Multi-method login via Privy — Twitter, email, wallet, plus embedded EVM wallet for bribes
+- MONO ↔ COLOR theme toggle; mono default, persisted to localStorage
+- Splash brand moment — chunky halftone Aether logo, sweep-bar loader, minimum 2.2s dwell
+- Bribe modal upgrades — faucet link, live balance check, in-modal status flow
+- In-game 0G integration credit pill
+- HUD polish — countdown card, bribe button, help button, OG pill all glass-styled
+- Round briefing popup at the start of every round explaining the mode + objective
+- Help overlay copy updated to match real timings (15s auto-start)
+- Friendly chat names — sanitizes `did:privy:...` → `Player-XXXXXX` at the door
+- Surfaced lobby auto-start countdown to the player
+- Mobile/iOS hardening — audio unlock on first tap, viewport safe-areas
+
+### Gameplay & feel
+
+- 2× world scale — bigger arena footprints, biome-aware ambient scenery filling the ring
+- Game-feel polish — kill feed, hitstop, screenshake, footsteps, ambient sound, countdown drumroll, respawn glow
+- Aetherist composes bigger live recipes (`C: Aetherist composes`)
+- Better default camera at game start — FOV 74, pulled back, slight pitch up
+- Calmer scene lighting + tightened bloom; cyber-noir fog
+- Easier early rounds — soft difficulty curve, hazards off until round 3
+- King of the Hill *Island Kingdoms* made actually playable — wider bridges, weaker wind, larger islands
+- Locked template pool to easy-only — no parkour_hell etc. for judge sessions
+- Obstacle tone-down — halved spawn counts, removed `falling_block` pattern, Survival hazard pacing relaxed
+- AI bots now opt-in via the debug panel only
+
+### Stability & infra
+
+- Lobby auto-start tightened to 15s (was 45s; fixed twice — `index.js` and `ArenaInstance.js` defaults)
+- Identity persistence across refresh — JWT embeds full identity (name, type, twitter, wallet); in-memory user cache fallback when DB is offline
+- Rejoin grace — 60s window keyed by userId so refreshing players resume alive instead of spawning as spectators
+- Spectator-on-refresh fix — controls bar honors spectator mode (Space no longer hijacks to camera zoom)
+- Crash-proof render loop — `animate()` wrapped in try/catch with throttled logging; global `window.error` + `unhandledrejection` handlers
+- Fixed endless-fall bug on respawn (authoritative dead-until-respawn flag)
+- Fixed ghost remote players when they leave / rejoin — proper Group disposal via `mesh.traverse()`
+- 0G Storage R3 — every finished game persists to 0G Storage on round end, with round-trip test
+- Agent runner — rate-limit safe, biases toward game-start when lobby has players, defensive sanitize layer, phase gates in prompt, explicit valid-spells / prefabs in prompt
+- Vite dev server pinned to port 5174 with strictPort
+- All server-side npm scripts load `.env` via `--env-file`
+- Login card capped at max-width so it stops stretching the viewport
+
+### Deploy
+
+- Railway deploy config — `railway.json`, runbook, Dockerfile build args for Vite envs
+- Client supports `VITE_BACKEND_URL` for split-host deploys (Vercel frontend + Railway backend)
+- Dockerfile hardened — `ARG CACHEBUST` to invalidate poisoned layer cache, npm fetch-retries=5 + 600s network-timeout to survive transient registry blips, `--prefer-offline --no-audit --no-fund` for quieter installs
+
+### Docs / roadmap
+
+- Judge-ready README pass
+- Roadmap restructured — post-Zero-Cup enhancements folded into R4/R5/R6 hackathon rounds
+- R2 bribe E2E test proving end-to-end chain verification
+
 ## [0.2.0] — 2026-06-17 · R2 · The Aetherist on 0G Compute
 
 ### Added
