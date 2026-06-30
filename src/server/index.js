@@ -57,8 +57,10 @@ const MEDIUM_TEMPLATES = ['spiral_tower', 'gauntlet', 'hex_a_gone', 'ice_rink', 
 const HARD_TEMPLATES = ['parkour_hell', 'slime_climb', 'wind_tunnel'];
 
 function getTemplatePoolForRound(gameNumber) {
-  if (gameNumber < 2) return EASY_TEMPLATES;
-  if (gameNumber < 5) return [...EASY_TEMPLATES, ...MEDIUM_TEMPLATES];
+  // First 4 rounds stay on easy templates only — judges / first-time players
+  // get a smooth on-ramp before the arena pulls out the harder maps.
+  if (gameNumber < 4) return EASY_TEMPLATES;
+  if (gameNumber < 8) return [...EASY_TEMPLATES, ...MEDIUM_TEMPLATES];
   return ALL_TEMPLATES;
 }
 

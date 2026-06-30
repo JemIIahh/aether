@@ -2561,6 +2561,93 @@
     }
 
     /* ============================================================
+       Round briefing — full-screen dim with a centered glass card that
+       tells the player the goal of the game just starting. Shown for
+       ~6s on every game_start, dismissible by click. Doesn't block input
+       (pointer-events on backdrop only catches clicks for dismiss).
+       ============================================================ */
+    #round-briefing {
+      position: fixed;
+      inset: 0;
+      z-index: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0.55), rgba(0,0,0,0.78));
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
+      cursor: pointer;
+      animation: rbFadeIn 0.32s ease-out;
+    }
+    #round-briefing.closing { animation: rbFadeOut 0.28s ease-in forwards; }
+    @keyframes rbFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes rbFadeOut { from { opacity: 1; } to { opacity: 0; } }
+    .rb-card {
+      max-width: 480px;
+      width: min(90vw, 480px);
+      padding: 28px 32px 22px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(20, 22, 38, 0.9), rgba(9, 11, 22, 0.92));
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow:
+        0 30px 90px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.04) inset;
+      text-align: center;
+      animation: rbCardIn 0.42s cubic-bezier(.2,.9,.3,1.05);
+    }
+    @keyframes rbCardIn {
+      from { transform: translateY(14px) scale(0.96); opacity: 0; }
+      to   { transform: translateY(0)    scale(1);    opacity: 1; }
+    }
+    .rb-eyebrow {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: rgba(212, 255, 0, 0.8);
+      margin-bottom: 8px;
+    }
+    .rb-title {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 10px;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+    .rb-objective {
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.86);
+      margin: 0 0 12px;
+    }
+    .rb-tip {
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.58);
+      margin: 0 0 16px;
+      font-style: italic;
+    }
+    .rb-tip::before {
+      content: 'Tip: ';
+      color: rgba(212,255,0,0.85);
+      font-style: normal;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+    .rb-dismiss {
+      font-size: 10px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.32);
+      font-weight: 600;
+    }
+    /* Mono-theme variant — drops the acid accents */
+    body.theme-mono-game .rb-eyebrow,
+    body.theme-mono-game .rb-tip::before { color: rgba(255,255,255,0.7); }
+
+    /* ============================================================
        0G integration credit pill — top-left, refined glass micro-credit.
        Reads as a status badge ("we are live on 0G Galileo") rather than a
        debug tag. Subtle by default, lights up gently on hover.
@@ -2942,6 +3029,19 @@
   </div>
   <div id="kill-feed"></div>
   <button id="help-btn" title="How to play">? How to Play</button>
+
+  <!-- Round briefing — appears at the start of each game showing the mode +
+       objective so new players aren't dropped in cold. Auto-dismisses, also
+       closes on click. -->
+  <div id="round-briefing" style="display:none">
+    <div class="rb-card">
+      <div class="rb-eyebrow">This round</div>
+      <h3 class="rb-title" id="rb-title">—</h3>
+      <p class="rb-objective" id="rb-objective">—</p>
+      <p class="rb-tip" id="rb-tip">—</p>
+      <div class="rb-dismiss">Tap to dismiss · auto-closes</div>
+    </div>
+  </div>
 
   <!-- 0G integration credit — visible in-game so observers see the chain in play -->
   <div id="og-credit" style="display:none" title="The Aetherist runs on 0G Compute. Bribes settle on 0G Chain.">

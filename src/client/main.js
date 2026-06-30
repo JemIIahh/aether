@@ -167,10 +167,14 @@ scene.background = new THREE.Color(0x2a2a4e);
 // platforms stay visible.
 scene.fog = new THREE.FogExp2(0x07080d, 0.006);
 
-// FOV 70° — confident third-person feel; wider FOVs (78-85) shrank the
+// FOV 74° — slightly wider than the old 70 to fit more arena in frame at the
+// default distance. Still narrow enough to keep the player feeling close-up,
+// not fish-eye distorted. Combined with the higher pitch + further follow
+// distance below, the default in-game shot now shows the player AND what's
+// in front of them on the same screen. Confident third-person feel; wider FOVs (78-85) shrank the
 // player on screen and exaggerated depth, which made jumps hard to read.
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 6, 12);
+const camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 7.5, 14);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -315,12 +319,16 @@ const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || win
 // Mouse Look Camera
 // ============================================
 let cameraYaw = 0;
-// Higher pitch (~20°) puts more of the upcoming path in view so the player
-// can see the next platform under them while jumping.
-let cameraPitch = 0.35;
-// Desired follow distance (player taste). The raycaster pull-back below
-// shortens this on the fly when a platform / obstacle would clip the camera.
-let cameraDistance = isMobile ? 11.5 : 8.5;
+// Higher pitch (~26°) puts more of the upcoming path in view so the player
+// can see the next platform under them while jumping. The old 0.35 (20°)
+// was too low and made the player blob fill too much of the screen, hiding
+// what's ahead.
+let cameraPitch = 0.46;
+// Desired follow distance. Bumped from 8.5 → 10 on desktop so the player
+// doesn't dominate the frame and the next platform is always visible.
+// The raycaster pull-back below still shortens this on the fly when a
+// platform / obstacle would clip the camera.
+let cameraDistance = isMobile ? 12.5 : 10;
 // Effective distance after collision pull-back — eased over frames so we
 // don't snap in/out when grazing edges.
 let _cameraEffectiveDist = cameraDistance;
@@ -2750,6 +2758,54 @@ function showAnnouncement(announcement) {
   console.log(`[Announcement] ${announcement.type}: ${announcement.text}`);
 }
 
+// Per-mode briefing copy shown when a round starts. Keep wording short so the
+// card stays a glance, not a wall of text. Keyed by server gameType.
+const ROUND_BRIEFINGS = {
+  reach:       { title: 'Reach the Goal',     objective: 'First player to touch the goal wins this round.',         tip: 'The goal may move — watch for shifts.' },
+  collect:     { title: 'Collect-a-thon',     objective: 'Grab the most glowing collectibles before time runs out.', tip: 'Items respawn — keep moving, never camp.' },
+  survival:    { title: 'Survival',           objective: 'Stay alive. Hazards rise. Last player standing wins.',     tip: 'Watch the floor, dodge hazards, hold high ground.' },
+  king:        { title: 'King of the Hill',   objective: 'Stand in the glowing zone to score. Most points wins.',     tip: 'Contested zones pay nothing — push others out first.' },
+  hot_potato:  { title: 'Hot Potato',         objective: 'Whoever holds the curse when the timer hits zero is out.',  tip: 'Bump cursed players to pass it — and sprint to dodge.' },
+  race:        { title: 'Checkpoint Race',    objective: 'Hit every checkpoint in order. First to finish wins.',      tip: 'The next checkpoint glows brighter — chase the glow.' },
+};
+
+let _briefingDismissTimer = null;
+function hideRoundBriefing() {
+  const card = document.getElementById('round-briefing');
+  if (!card || card.style.display === 'none') return;
+  clearTimeout(_briefingDismissTimer);
+  _briefingDismissTimer = null;
+  card.classList.add('closing');
+  setTimeout(() => {
+    card.style.display = 'none';
+    card.classList.remove('closing');
+  }, 280);
+}
+
+function showRoundBriefing(gameType) {
+  if (!gameType) return;
+  const spec = ROUND_BRIEFINGS[gameType];
+  if (!spec) return;
+  const card = document.getElementById('round-briefing');
+  const titleEl = document.getElementById('rb-title');
+  const objEl   = document.getElementById('rb-objective');
+  const tipEl   = document.getElementById('rb-tip');
+  if (!card || !titleEl || !objEl || !tipEl) return;
+
+  // Spectators don't get the briefing — they're watching, not playing.
+  if (isInSpectatorMode()) return;
+
+  titleEl.textContent = spec.title;
+  objEl.textContent = spec.objective;
+  tipEl.textContent = spec.tip;
+  card.classList.remove('closing');
+  card.style.display = 'flex';
+
+  card.onclick = hideRoundBriefing;
+  clearTimeout(_briefingDismissTimer);
+  _briefingDismissTimer = setTimeout(hideRoundBriefing, 6500);
+}
+
 // ============================================
 // Spell Effects
 // ============================================
@@ -3331,6 +3387,16 @@ async function connectToServer() {
         }
       }
 
+      // Round briefing — show the mode rules on every countdown start so
+      // players entering a new round know what they're trying to do.
+      if (gameState.phase === 'countdown' && prevPhase !== 'countdown') {
+        showRoundBriefing(gameState.gameType);
+      }
+      // Hide briefing when round resets to lobby (next round will re-show).
+      if (gameState.phase === 'lobby' || gameState.phase === 'ended') {
+        hideRoundBriefing();
+      }
+
       // Phase transition VFX
       if (gameState.phase === 'countdown' && prevPhase !== 'countdown') {
         triggerCameraShake(0.1, 5000);
@@ -3454,9 +3520,33 @@ async function connectToServer() {
 // ============================================
 const clock = new THREE.Clock();
 
+// Crash protection: any uncaught error inside the render loop would
+// otherwise kill animation entirely and freeze the game. Counts errors so
+// we can detect a runaway loop (same error every frame) and stop spamming
+// the console. Renders the previous frame's state on error so the screen
+// doesn't freeze visually either.
+let _animateErrorCount = 0;
+let _animateLastErrorTime = 0;
+
 function animate() {
   requestAnimationFrame(animate);
+  try {
+    animateFrame();
+  } catch (err) {
+    _animateErrorCount += 1;
+    const now = Date.now();
+    // Throttle logging: at most once per second, but always log the first 3
+    if (_animateErrorCount <= 3 || now - _animateLastErrorTime > 1000) {
+      console.error('[Animate] frame error (count=' + _animateErrorCount + '):', err);
+      _animateLastErrorTime = now;
+    }
+    // Last-resort: still render whatever state we have so the screen
+    // doesn't go black on a transient error.
+    try { renderFrame(); } catch { /* renderer itself dying — give up gracefully */ }
+  }
+}
 
+function animateFrame() {
   const delta = clock.getDelta();
   const time = performance.now() / 1000;
 
@@ -4749,6 +4839,17 @@ async function showArenaLobby() {
 // ============================================
 // Init
 // ============================================
+// Global error nets — any uncaught exception or unhandled promise rejection
+// from anywhere in the client gets logged once instead of silently freezing
+// the page. Don't preventDefault on errors — let DevTools still see them
+// the normal way.
+window.addEventListener('error', (ev) => {
+  console.error('[Global] Uncaught error:', ev.error || ev.message, 'at', ev.filename + ':' + ev.lineno);
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  console.error('[Global] Unhandled promise rejection:', ev.reason);
+});
+
 async function init() {
   console.log('[Game] Initializing...');
 
