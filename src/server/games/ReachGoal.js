@@ -42,8 +42,9 @@ export class ReachGoal extends MiniGame {
       console.log(`[ReachGoal] Created goal at [${this.goalPosition.join(', ')}]`);
     }
 
-    // Spawn random obstacles between player and goal
-    this._spawnRandomObstacles(2 + Math.floor(Math.random() * 3));
+    // Spawn random obstacles between player and goal — halved from 2-4 → 0-1
+    // so judges aren't dodging a dozen sweepers on every Reach round.
+    this._spawnRandomObstacles(Math.floor(Math.random() * 2));
 
     this.announce(`REACH THE GOLDEN GOAL!`, 'challenge');
     return this;

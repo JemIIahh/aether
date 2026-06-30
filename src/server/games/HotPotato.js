@@ -25,7 +25,8 @@ export class HotPotato extends MiniGame {
 
   start() {
     super.start();
-    this._spawnRandomObstacles(1 + Math.floor(Math.random() * 2));
+    // 1-2 → 0-1: Hot Potato is already chaotic from the curse passing alone.
+    this._spawnRandomObstacles(Math.floor(Math.random() * 2));
     this._startNewRound();
     this.announce('HOT POTATO! Don\'t get caught with the curse!', 'challenge');
     return this;

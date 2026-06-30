@@ -63,7 +63,8 @@ export class Race extends MiniGame {
       this._setEntityColor(this.checkpoints[0].entityId, '#2ecc71');
     }
 
-    this._spawnRandomObstacles(2);
+    // 2 → 1: race tension comes from checkpoints, not obstacle dodging.
+    this._spawnRandomObstacles(1);
     this.announce(`RACE! Hit ${this.totalCheckpoints} checkpoints in order!`, 'challenge');
     return this;
   }

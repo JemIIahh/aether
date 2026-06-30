@@ -45,8 +45,8 @@ export class CollectGame extends MiniGame {
       this.collectibleIds.push(collectible.id);
     }
 
-    // Spawn random obstacles to make collection harder
-    this._spawnRandomObstacles(1 + Math.floor(Math.random() * 3));
+    // Spawn random obstacles to make collection harder — halved from 1-3 → 0-1
+    this._spawnRandomObstacles(Math.floor(Math.random() * 2));
 
     this.announce(`COLLECT ${this.collectibleCount} ITEMS!`, 'challenge');
     console.log(`[CollectGame] Spawned ${this.collectibleCount} collectibles`);
