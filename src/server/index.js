@@ -38,7 +38,7 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const MIN_LOBBY_MS = 5000;
-const AUTO_START_DELAY = 20000;
+const AUTO_START_DELAY = 15000;
 const MIN_GAME_DURATION_MS = 30000;
 const ANNOUNCEMENT_COOLDOWN = 5000;
 const AGENT_CHAT_COOLDOWN = 3000;
