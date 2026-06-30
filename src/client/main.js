@@ -2750,6 +2750,54 @@ function showAnnouncement(announcement) {
   console.log(`[Announcement] ${announcement.type}: ${announcement.text}`);
 }
 
+// Per-mode briefing copy shown when a round starts. Keep wording short so the
+// card stays a glance, not a wall of text. Keyed by server gameType.
+const ROUND_BRIEFINGS = {
+  reach:       { title: 'Reach the Goal',     objective: 'First player to touch the goal wins this round.',         tip: 'The goal may move — watch for shifts.' },
+  collect:     { title: 'Collect-a-thon',     objective: 'Grab the most glowing collectibles before time runs out.', tip: 'Items respawn — keep moving, never camp.' },
+  survival:    { title: 'Survival',           objective: 'Stay alive. Hazards rise. Last player standing wins.',     tip: 'Watch the floor, dodge hazards, hold high ground.' },
+  king:        { title: 'King of the Hill',   objective: 'Stand in the glowing zone to score. Most points wins.',     tip: 'Contested zones pay nothing — push others out first.' },
+  hot_potato:  { title: 'Hot Potato',         objective: 'Whoever holds the curse when the timer hits zero is out.',  tip: 'Bump cursed players to pass it — and sprint to dodge.' },
+  race:        { title: 'Checkpoint Race',    objective: 'Hit every checkpoint in order. First to finish wins.',      tip: 'The next checkpoint glows brighter — chase the glow.' },
+};
+
+let _briefingDismissTimer = null;
+function hideRoundBriefing() {
+  const card = document.getElementById('round-briefing');
+  if (!card || card.style.display === 'none') return;
+  clearTimeout(_briefingDismissTimer);
+  _briefingDismissTimer = null;
+  card.classList.add('closing');
+  setTimeout(() => {
+    card.style.display = 'none';
+    card.classList.remove('closing');
+  }, 280);
+}
+
+function showRoundBriefing(gameType) {
+  if (!gameType) return;
+  const spec = ROUND_BRIEFINGS[gameType];
+  if (!spec) return;
+  const card = document.getElementById('round-briefing');
+  const titleEl = document.getElementById('rb-title');
+  const objEl   = document.getElementById('rb-objective');
+  const tipEl   = document.getElementById('rb-tip');
+  if (!card || !titleEl || !objEl || !tipEl) return;
+
+  // Spectators don't get the briefing — they're watching, not playing.
+  if (isInSpectatorMode()) return;
+
+  titleEl.textContent = spec.title;
+  objEl.textContent = spec.objective;
+  tipEl.textContent = spec.tip;
+  card.classList.remove('closing');
+  card.style.display = 'flex';
+
+  card.onclick = hideRoundBriefing;
+  clearTimeout(_briefingDismissTimer);
+  _briefingDismissTimer = setTimeout(hideRoundBriefing, 6500);
+}
+
 // ============================================
 // Spell Effects
 // ============================================
@@ -3329,6 +3377,16 @@ async function connectToServer() {
             mesh.material.emissiveIntensity = 0;
           }
         }
+      }
+
+      // Round briefing — show the mode rules on every countdown start so
+      // players entering a new round know what they're trying to do.
+      if (gameState.phase === 'countdown' && prevPhase !== 'countdown') {
+        showRoundBriefing(gameState.gameType);
+      }
+      // Hide briefing when round resets to lobby (next round will re-show).
+      if (gameState.phase === 'lobby' || gameState.phase === 'ended') {
+        hideRoundBriefing();
       }
 
       // Phase transition VFX
