@@ -15,7 +15,10 @@ import { saveGameHistory } from './db.js';
 import { persistGameResult } from './storage/ZeroGStorage.js';
 
 // Random obstacle patterns used by _spawnRandomObstacles
-const OBSTACLE_PATTERNS = ['sweeper', 'moving_wall', 'pendulum', 'falling_block'];
+// 'falling_block' removed for now — it spawns 2×2×2 boxes at y=20 that
+// rain down on whatever's below, piling onto small platforms and making
+// landings impossible. Bring it back once the per-platform spawn check is in.
+const OBSTACLE_PATTERNS = ['sweeper', 'moving_wall', 'pendulum'];
 
 // Half-width of the arena area for random obstacle placement
 const ARENA_SPREAD = 30;

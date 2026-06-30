@@ -56,12 +56,11 @@ const EASY_TEMPLATES = ['floating_islands', 'treasure_trove', 'king_plateau', 's
 const MEDIUM_TEMPLATES = ['spiral_tower', 'gauntlet', 'hex_a_gone', 'ice_rink', 'hot_potato_platforms', 'checkpoint_dash', 'race_circuit', 'king_islands'];
 const HARD_TEMPLATES = ['parkour_hell', 'slime_climb', 'wind_tunnel'];
 
-function getTemplatePoolForRound(gameNumber) {
-  // First 4 rounds stay on easy templates only — judges / first-time players
-  // get a smooth on-ramp before the arena pulls out the harder maps.
-  if (gameNumber < 4) return EASY_TEMPLATES;
-  if (gameNumber < 8) return [...EASY_TEMPLATES, ...MEDIUM_TEMPLATES];
-  return ALL_TEMPLATES;
+function getTemplatePoolForRound(/* gameNumber */) {
+  // Locked to EASY-only for now (judges / early testers — we don't want the
+  // game pulling out parkour_hell or slime_climb while we're still polishing).
+  // Restore the round-based ramp once we're confident in the harder maps.
+  return EASY_TEMPLATES;
 }
 
 function getTemplateGameType(templateName) {

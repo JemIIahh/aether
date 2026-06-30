@@ -11,9 +11,14 @@ export class Survival extends MiniGame {
   constructor(worldState, broadcastFn, config = {}) {
     super(worldState, broadcastFn, { ...config, type: 'survival' });
 
-    this.hazardInterval = config.hazardInterval || (3000 + Math.floor(Math.random() * 5000)); // 3-8s
+    // Hazard pacing: doubled the spawn interval (6-13s instead of 3-8s) and
+    // halved the cap (5-12 instead of 10-25). Survival was spawning a new
+    // hazard every few seconds and stacking 25 of them by mid-round, making
+    // the board unplayable. Bring back the relentless version when tuning
+    // hard difficulty later.
+    this.hazardInterval = config.hazardInterval || (6000 + Math.floor(Math.random() * 7000)); // 6-13s
     this.lastHazardTime = 0;
-    this.maxHazards = config.maxHazards || (10 + Math.floor(Math.random() * 16)); // 10-25
+    this.maxHazards = config.maxHazards || (5 + Math.floor(Math.random() * 8)); // 5-12
     this.currentHazards = 0;
     const platDim = 20 + Math.floor(Math.random() * 21); // 20-40
     this.platformSize = config.platformSize || [platDim, 1, platDim];

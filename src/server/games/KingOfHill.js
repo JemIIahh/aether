@@ -65,7 +65,8 @@ export class KingOfHill extends MiniGame {
       this.playerScores.set(id, 0);
     }
 
-    this._spawnRandomObstacles(2);
+    // 2 → 1: contesting the hill is already the challenge; one obstacle plenty.
+    this._spawnRandomObstacles(1);
     this.announce(`CONTROL THE HILL! First to ${this.targetScore} wins!`, 'challenge');
     return this;
   }
