@@ -553,24 +553,31 @@ export const TEMPLATES = {
       ambientIntensity: 0.4, sunColor: '#ffaa00', sunIntensity: 0.9,
       materialTheme: 'stone', skyPreset: 'sunset',
     },
+    // Respawn ON the center island so a player who falls comes back in the
+    // fight, not at the edge of nothing. y=6 puts them clearly above the
+    // y=5 platform top — short safe drop, can run immediately.
     respawnPoint: [0, 6, 0],
     goalPosition: null,
     entities: [
-      // Center island + hill
-      { type: 'platform', position: [0, 4, 0], size: [8, 2, 8], properties: { color: '#2c3e50' } },
-      { type: 'trigger', position: [0, 6.5, 0], size: [6, 3, 6], properties: { color: '#f1c40f', isHill: true, opacity: 0.3 } },
-      // North island + hill
-      { type: 'platform', position: [0, 4, -20], size: [7, 2, 7], properties: { color: '#27ae60' } },
-      { type: 'trigger', position: [0, 6.5, -20], size: [5, 3, 5], properties: { color: '#e67e22', isHill: true, opacity: 0.3 } },
+      // Center island + hill — bigger so two players can fight on it
+      // without nudging each other off.
+      { type: 'platform', position: [0, 4, 0], size: [11, 2, 11], properties: { color: '#2c3e50' } },
+      { type: 'trigger', position: [0, 6.5, 0], size: [8, 3, 8], properties: { color: '#f1c40f', isHill: true, opacity: 0.3 } },
+      // North island + hill — also bigger
+      { type: 'platform', position: [0, 4, -20], size: [9, 2, 9], properties: { color: '#27ae60' } },
+      { type: 'trigger', position: [0, 6.5, -20], size: [6, 3, 6], properties: { color: '#e67e22', isHill: true, opacity: 0.3 } },
       // South island + hill
-      { type: 'platform', position: [0, 4, 20], size: [7, 2, 7], properties: { color: '#27ae60' } },
-      { type: 'trigger', position: [0, 6.5, 20], size: [5, 3, 5], properties: { color: '#e67e22', isHill: true, opacity: 0.3 } },
-      // Bridges (narrow + wind)
-      { type: 'platform', position: [0, 4, -10], size: [2, 0.5, 8], properties: { color: '#8e44ad' } },
-      { type: 'platform', position: [0, 4, 10], size: [2, 0.5, 8], properties: { color: '#8e44ad' } },
-      // Wind on bridges
-      { type: 'trigger', position: [3, 6, -10], size: [4, 5, 8], properties: { color: '#87ceeb', isWind: true, windForce: [5, 0, 0], opacity: 0.08 } },
-      { type: 'trigger', position: [-3, 6, 10], size: [4, 5, 8], properties: { color: '#87ceeb', isWind: true, windForce: [-5, 0, 0], opacity: 0.08 } },
+      { type: 'platform', position: [0, 4, 20], size: [9, 2, 9], properties: { color: '#27ae60' } },
+      { type: 'trigger', position: [0, 6.5, 20], size: [6, 3, 6], properties: { color: '#e67e22', isHill: true, opacity: 0.3 } },
+      // Bridges — wider so they're traversable. Previous 2-wide bridges
+      // were impossible to cross with a 1.25× spread + crosswind. 4.5-wide
+      // gives margin to walk straight through.
+      { type: 'platform', position: [0, 4, -10], size: [4.5, 0.5, 8], properties: { color: '#8e44ad' } },
+      { type: 'platform', position: [0, 4, 10], size: [4.5, 0.5, 8], properties: { color: '#8e44ad' } },
+      // Wind on bridges — kept as flavor, but force halved (5 → 2.2) and
+      // the triggers pulled tighter so they only nudge, not deport players.
+      { type: 'trigger', position: [3, 6, -10], size: [3, 4, 7], properties: { color: '#87ceeb', isWind: true, windForce: [2.2, 0, 0], opacity: 0.08 } },
+      { type: 'trigger', position: [-3, 6, 10], size: [3, 4, 7], properties: { color: '#87ceeb', isWind: true, windForce: [-2.2, 0, 0], opacity: 0.08 } },
       // Crown star above center
       { type: 'decoration', position: [0, 10, 0], size: [1.2, 1.8, 1.2], properties: { shape: 'star', color: '#f1c40f', emissive: true, rotating: true, speed: 0.4 } },
       // Domes sheltering bridges
