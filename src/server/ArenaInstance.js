@@ -34,7 +34,7 @@ export class ArenaInstance {
       defaultTemplate: config.defaultTemplate || null,
       environment: config.environment || {},
       rules: config.rules || '',
-      autoStartDelay: config.autoStartDelay || 45000,
+      autoStartDelay: config.autoStartDelay || 15000,
     };
 
     // Core game state

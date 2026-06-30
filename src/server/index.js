@@ -999,22 +999,10 @@ gameRouter.post('/game/start', (req, res) => {
 
   if (template) {
     import('./ArenaTemplates.js').then(({ TEMPLATES }) => {
-      // Enforce the difficulty tier even when the agent picks a template
-      // directly — otherwise the LLM happily ships "PARKOUR HELL" on round 1
-      // and stomps the newcomer experience.
-      const round = ws.gameHistory?.length ?? 0;
-      const allowedTier = getTemplatePoolForRound(round);
-      let resolvedName = template;
-      if (!allowedTier.includes(template)) {
-        const fallback = allowedTier[Math.floor(Math.random() * allowedTier.length)];
-        console.log(`[GameStart:${arena.id}] Agent picked ${template} but round ${round + 1} only allows ${allowedTier.join(',')} — swapping to ${fallback}`);
-        resolvedName = fallback;
-        // Tag the arena so the next agent chat (e.g. "PARKOUR HELL!") gets
-        // rewritten to reflect what we actually started.
-        arena._swappedFrom = template;
-        arena._swappedTo = fallback;
-        arena._swappedTemplateUntil = Date.now() + 6000;
-      }
+      // When the Aetherist picks a template directly, trust its judgment.
+      // Auto-start still walks the easy → medium → hard tier progression for
+      // newcomers (scheduleAutoStart above), but agent choices are not capped.
+      const resolvedName = template;
       const tmpl = TEMPLATES[resolvedName];
       if (!tmpl) {
         return res.status(404).json({
