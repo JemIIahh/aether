@@ -146,15 +146,23 @@
       pointer-events: none;
     }
     #login-screen::before {
-      /* Dot grid + vignette pinned on top of the canvas so text stays legible */
+      /* Dot grid + soft vignette pinned on top of the canvas so text stays
+         legible — but kept light enough that the 3D scene reads clearly. */
       content: '';
       position: fixed;
       inset: 0;
       z-index: 1;
       pointer-events: none;
       background:
-        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0) 0 0 / 18px 18px,
-        radial-gradient(ellipse at center, transparent 0%, rgba(7,8,13,0.55) 70%, rgba(7,8,13,0.85) 100%);
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.015) 1px, transparent 0) 0 0 / 24px 24px,
+        radial-gradient(ellipse at center, transparent 0%, rgba(7,8,13,0.25) 65%, rgba(7,8,13,0.55) 100%);
+    }
+    /* In mono mode the page is supposed to feel premium-minimal — lift the
+       vignette even more so the 3D scene becomes the hero. */
+    #login-screen.theme-mono::before {
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.012) 1px, transparent 0) 0 0 / 26px 26px,
+        radial-gradient(ellipse at center, transparent 0%, rgba(7,8,13,0.18) 70%, rgba(7,8,13,0.45) 100%);
     }
     .landing-scroll {
       position: relative;
@@ -217,14 +225,14 @@
       letter-spacing: -2px;
       margin: 0 0 18px !important;
       background: none !important;
-      color: #f4f4f5 !important;
-      -webkit-text-fill-color: #f4f4f5;
-      -webkit-background-clip: border-box;
-              background-clip: border-box;
-      filter: none;
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
+      -webkit-background-clip: border-box !important;
+              background-clip: border-box !important;
+      filter: none !important;
       text-shadow:
         0 2px 0 rgba(0,0,0,0.55),
-        0 0 26px rgba(0,240,255,0.22),
+        0 0 34px rgba(0,240,255,0.35),
         0 12px 30px rgba(0,0,0,0.55);
     }
     /* Optional ::after for a subtle chromatic-aberration arcade vibe — adds
@@ -707,11 +715,12 @@
       color: rgba(255,255,255,0.92);
       font-weight: 700;
     }
-    /* AETHER wordmark — drop the cyan ghost shadow + chromatic split */
+    /* AETHER wordmark in mono — swap the cyan ghost for a luminous white halo
+       that still pops against the dark scene. */
     #login-screen.theme-mono .brand-logo-hero {
       text-shadow:
         0 2px 0 rgba(0,0,0,0.55),
-        0 0 26px rgba(255,255,255,0.12),
+        0 0 36px rgba(255,255,255,0.32),
         0 12px 30px rgba(0,0,0,0.55) !important;
     }
     #login-screen.theme-mono .brand-logo-hero::after {
@@ -1136,31 +1145,34 @@
     }
     #game-status {
       position: fixed;
-      top: 20px;
+      top: 18px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 100;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 16px 32px;
-      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(20, 22, 38, 0.78), rgba(9, 11, 22, 0.82));
+      padding: 14px 28px;
+      border-radius: 14px;
       color: white;
-      min-width: 200px;
+      min-width: 220px;
       text-align: center;
-      transition: all 0.4s ease;
-      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03) inset;
+      transition: border-color 0.4s ease, transform 0.3s ease;
+      backdrop-filter: blur(14px) saturate(130%);
+      -webkit-backdrop-filter: blur(14px) saturate(130%);
     }
     /* Compact centered layout for active/ended phases */
     #game-status.playing {
-      padding: 10px 20px;
-      border: 2px solid var(--aether-mint);
+      padding: 12px 22px;
+      border-color: rgba(52, 211, 153, 0.32);
     }
     #game-status.countdown {
-      border: 2px solid var(--aether-magenta);
-      animation: statusPulse 1s ease-in-out infinite;
+      border-color: rgba(255, 159, 67, 0.42);
+      animation: statusPulse 1.6s ease-in-out infinite;
     }
     @keyframes statusPulse {
-      0%, 100% { box-shadow: 0 0 8px rgba(217, 70, 239, 0.3); }
-      50% { box-shadow: 0 0 20px rgba(217, 70, 239, 0.6); }
+      0%, 100% { box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,159,67,0.04) inset; }
+      50%      { box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 24px rgba(255,159,67,0.18); }
     }
     /* Phase label is a tiny chip above the timer — was a chunky 16px heading
        competing with the number. Now it just labels what the number means. */
@@ -2291,24 +2303,53 @@
     }
     @keyframes statusPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: none; } }
 
-    /* Bribe button — solid acid chartreuse, dark text, no orange anywhere */
+    /* Bribe button — refined glass with acid edge. Less neon than the old
+       solid yellow, still reads as the headline action thanks to the inner
+       acid glow + bright label. Pairs visually with the help pill above. */
     .bribe-btn {
-      background: var(--aether-acid);
-      color: #0a1100;
+      background: linear-gradient(180deg, rgba(28,32,16,0.88), rgba(14,16,10,0.92));
+      color: #eafe7e;
       padding: 11px 22px;
-      border-radius: 10px;
+      border-radius: 12px;
       font-weight: 700;
-      box-shadow: 0 4px 14px -4px rgba(0,0,0,0.55);
-      letter-spacing: 0.2px;
+      font-size: 13px;
+      letter-spacing: 0.4px;
+      border: 1px solid rgba(212,255,0,0.32);
+      box-shadow:
+        0 10px 28px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(212,255,0,0.05) inset,
+        0 0 16px rgba(212,255,0,0.06) inset;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
     }
     .bribe-btn:hover {
-      filter: brightness(1.05);
+      color: #fff;
+      border-color: rgba(212,255,0,0.6);
+      box-shadow:
+        0 12px 32px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(212,255,0,0.12) inset,
+        0 0 24px rgba(212,255,0,0.18);
       transform: translateY(-1px);
     }
     .bribe-balance {
-      color: var(--aether-acid);
+      color: rgba(255,255,255,0.78);
       text-shadow: none;
       font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      margin-top: 6px;
+    }
+    .bribe-balance::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--aether-acid);
+      box-shadow: 0 0 6px rgba(212,255,0,0.6);
+      margin-right: 6px;
+      transform: translateY(-1px);
     }
     .bribe-modal-content {
       background: var(--bg-card);
@@ -2338,19 +2379,31 @@
     .chat-msg.player .sender { color: var(--aether-cyan);    font-weight: 600; }
     .chat-msg .text .at-agent { color: var(--aether-pink); }
 
-    /* How-to-play pill — small flat cyber pink */
+    /* How-to-play pill — glass with a soft pink ring. Sits above the bribe
+       button in the action stack; same glass tier so they read as a set. */
     #help-btn {
-      background: var(--aether-pink);
-      color: #200012;
-      border: none;
+      background: linear-gradient(180deg, rgba(28,16,28,0.88), rgba(14,10,18,0.92));
+      color: #ffb6dc;
+      border: 1px solid rgba(255,45,146,0.28);
       border-radius: 999px;
+      padding: 7px 14px;
       font-weight: 700;
-      box-shadow: var(--shadow-lift);
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      box-shadow:
+        0 8px 22px rgba(0,0,0,0.45),
+        0 0 0 1px rgba(255,45,146,0.04) inset;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
     }
     #help-btn:hover {
-      filter: brightness(1.06);
+      color: #fff;
+      border-color: rgba(255,45,146,0.6);
+      box-shadow:
+        0 10px 26px rgba(0,0,0,0.55),
+        0 0 18px rgba(255,45,146,0.18);
       transform: translateY(-1px);
-      box-shadow: var(--shadow-lift);
     }
 
     /* Wallet panel — acid currency value */
@@ -2409,47 +2462,70 @@
 
     /* Loader stack */
     .login-loader {
-      display: flex;
+      display: inline-flex;
       flex-direction: column;
       align-items: center;
       gap: 14px;
-      margin-top: 8px;
+      margin-top: 28px;
+      padding: 18px 32px;
+      border-radius: 16px;
+      background: rgba(7,8,13,0.65);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      position: relative;
+      z-index: 4;
     }
 
-    /* Horizontal gradient sweep bar — modern AAA gaming loader.
-       A faint pill-shaped track with a chartreuse→pink comet that
-       sweeps left to right on loop. No glow, just motion. */
+    /* Loader — five large dots that pulse in sequence. Big enough to read at
+       distance, theme-aware, and visually distinct from the 3D character so
+       it stops competing with the scene behind it. */
     .loader-spinner {
-      width: 260px;
-      height: 6px;
+      width: auto;
+      height: 14px;
       border: none;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.06);
+      background: transparent;
+      display: inline-flex;
+      gap: 12px;
+      align-items: center;
       animation: none;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
     }
-    .loader-spinner::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 42%;
-      height: 100%;
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        var(--aether-acid) 35%,
-        var(--aether-pink) 65%,
-        transparent 100%
-      );
-      border-radius: 999px;
-      animation: loaderSweep 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    .loader-spinner span {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+      animation: loaderDot 1.4s ease-in-out infinite;
     }
-    @keyframes loaderSweep {
-      0%   { transform: translateX(-110%); }
-      100% { transform: translateX(245%); }
+    .loader-spinner span:nth-child(1) { animation-delay: 0.00s; }
+    .loader-spinner span:nth-child(2) { animation-delay: 0.12s; }
+    .loader-spinner span:nth-child(3) { animation-delay: 0.24s; }
+    .loader-spinner span:nth-child(4) { animation-delay: 0.36s; }
+    .loader-spinner span:nth-child(5) { animation-delay: 0.48s; }
+    @keyframes loaderDot {
+      0%, 75%, 100% { opacity: 0.22; transform: scale(0.55); }
+      35%           { opacity: 1;    transform: scale(1.1); }
     }
+    /* MONO mode (default): all dots are pure white with a soft glow.
+       Visual rhythm comes from the staggered pulse, not from color. */
+    #login-screen.theme-mono .loader-spinner span {
+      background: #ffffff;
+      box-shadow: 0 0 12px rgba(255,255,255,0.35);
+    }
+    /* COLOR mode: each dot tinted across the brand palette, refined glows */
+    #login-screen:not(.theme-mono) .loader-spinner span:nth-child(1) { background: var(--aether-cyan);   box-shadow: 0 0 12px rgba(0,240,255,0.45); }
+    #login-screen:not(.theme-mono) .loader-spinner span:nth-child(2) { background: var(--aether-acid);   box-shadow: 0 0 12px rgba(212,255,0,0.45); }
+    #login-screen:not(.theme-mono) .loader-spinner span:nth-child(3) { background: var(--aether-mint);   box-shadow: 0 0 12px rgba(52,211,153,0.45); }
+    #login-screen:not(.theme-mono) .loader-spinner span:nth-child(4) { background: var(--aether-pink);   box-shadow: 0 0 12px rgba(255,45,146,0.45); }
+    #login-screen:not(.theme-mono) .loader-spinner span:nth-child(5) { background: var(--aether-violet); box-shadow: 0 0 12px rgba(139,92,246,0.45); }
+    /* MONO mode also strips any tint from the loader card border + status text */
+    #login-screen.theme-mono .login-loader {
+      border-color: rgba(255,255,255,0.10);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    }
+    #login-screen.theme-mono .login-status { color: rgba(255,255,255,0.78); }
 
     /* Tiny inline spinner used inside the Twitter button — kept compact
        and circular (different visual context from the splash loader) */
@@ -2466,12 +2542,12 @@
     .btn-spinner::before { content: none; }
 
     .login-status {
-      color: var(--text-secondary);
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 1.5px;
+      color: rgba(255,255,255,0.9);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
       text-transform: uppercase;
-      margin-top: 6px;
+      margin: 0;
     }
 
     /* Subtle ambient pulse on the logo while waiting — *no glow*,
@@ -2485,55 +2561,70 @@
     }
 
     /* ============================================================
-       0G integration credit pill — anchored bottom-left in-game
+       0G integration credit pill — top-left, refined glass micro-credit.
+       Reads as a status badge ("we are live on 0G Galileo") rather than a
+       debug tag. Subtle by default, lights up gently on hover.
        ============================================================ */
     #og-credit {
       position: fixed;
-      top: 20px;
-      left: 20px;
+      top: 18px;
+      left: 18px;
       z-index: 145;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 7px 13px 7px 11px;
-      background: rgba(14, 8, 40, 0.78);
-      border: 1px solid var(--border-card);
+      gap: 9px;
+      padding: 6px 12px 6px 10px;
+      background: rgba(9, 11, 22, 0.72);
+      border: 1px solid rgba(255,255,255,0.07);
       border-radius: 999px;
       font-family: 'Fredoka', system-ui, sans-serif;
       font-size: 11px;
       font-weight: 500;
-      letter-spacing: 0.5px;
-      color: var(--text-secondary);
-      box-shadow: var(--shadow-lift);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      transition: opacity 0.2s;
+      letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.78);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      backdrop-filter: blur(10px) saturate(140%);
+      -webkit-backdrop-filter: blur(10px) saturate(140%);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    #og-credit:hover {
+      border-color: rgba(212,255,0,0.35);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(212,255,0,0.05) inset;
     }
     #og-credit .og-dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--aether-acid);
-      animation: ogDotPulse 1.8s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(212,255,0,0.65);
+      animation: ogDotPulse 2.2s ease-in-out infinite;
     }
     @keyframes ogDotPulse {
       0%, 100% { opacity: 1;   transform: scale(1); }
-      50%      { opacity: 0.4; transform: scale(0.85); }
+      50%      { opacity: 0.45; transform: scale(0.7); }
     }
-    #og-credit .og-text { color: var(--text-secondary); }
+    #og-credit .og-text {
+      color: rgba(255,255,255,0.62);
+      font-size: 10.5px;
+      letter-spacing: 0.6px;
+    }
     #og-credit .og-text strong {
-      color: var(--aether-acid);
+      color: #fff;
       font-weight: 700;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
+      margin-left: 1px;
     }
+    /* Subtle divider — using a transparent gradient instead of a hard 1px
+       border so the pill reads as one piece on dark backgrounds. */
     #og-credit .og-net {
-      color: var(--text-muted);
-      padding-left: 8px;
-      border-left: 1px solid var(--border-hairline);
+      color: rgba(255,255,255,0.55);
+      padding-left: 10px;
+      margin-left: 2px;
+      border-left: 1px solid rgba(255,255,255,0.10);
       text-transform: uppercase;
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
-      letter-spacing: 1px;
+      letter-spacing: 1.4px;
     }
   </style>
 </head>
@@ -2555,8 +2646,10 @@
           <h1 class="brand-logo brand-logo-hero">Aether</h1>
           <p class="hero-tagline">A 3D multiplayer arena built live by <span class="text-accent-pink">The Aetherist</span> — an autonomous agent that runs on the AI Layer-1.</p>
           <div class="login-loader">
-            <div class="loader-spinner"></div>
-            <p class="login-status">Loading...</p>
+            <div class="loader-spinner">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p class="login-status">Initializing</p>
           </div>
         </div>
         <!-- Phase 2: Hero CTA (hidden until Privy is ready) -->
@@ -2860,29 +2953,29 @@
     <div class="help-content">
       <div class="help-header">
         <h2>Aether</h2>
-        <p>An AI agent runs the show. You just try to survive.</p>
+        <p>A 3D multiplayer arena built live by The Aetherist — an autonomous agent on 0G.</p>
       </div>
       <div class="help-section">
         <div class="help-section-title">The Concept</div>
         <div class="help-row">
           <div class="help-icon purple">&#x1F52E;</div>
           <div>
-            <div class="help-label">The Aetherist (AI) builds games live</div>
-            <div class="help-desc">It spawns arenas, starts mini-games, casts spells, and reacts to what players do.</div>
+            <div class="help-label">The Aetherist composes games live</div>
+            <div class="help-desc">It picks the arena, spawns hazards, starts mini-games, and reacts to what the room is doing.</div>
           </div>
         </div>
         <div class="help-row">
           <div class="help-icon gold">&#x1F399;</div>
           <div>
-            <div class="help-label">Talk to it in chat with @agent</div>
-            <div class="help-desc">Ask for anything: "spawn a giant spider", "make it rain fire", "start a race"</div>
+            <div class="help-label">Talk to it with @agent in chat</div>
+            <div class="help-desc">Ask for anything — "rain fire", "start a race", "speed me up". It listens and may oblige.</div>
           </div>
         </div>
         <div class="help-row">
           <div class="help-icon gold">&#x1F4B0;</div>
           <div>
-            <div class="help-label">Bribe the Aetherist</div>
-            <div class="help-desc">Use the Bribe button to pay tokens for special favors, buffs, or total chaos.</div>
+            <div class="help-label">Bribe the Aetherist with 0G</div>
+            <div class="help-desc">Pay testnet 0G via the bottom-right button. Bribes settle on-chain and trigger buffs, favors, or chaos.</div>
           </div>
         </div>
       </div>
@@ -2891,15 +2984,15 @@
         <div class="help-row">
           <div class="help-icon green">&#x23F3;</div>
           <div>
-            <div class="help-label">Games start automatically</div>
-            <div class="help-desc">Wait in the lobby &mdash; a new game starts every ~45 seconds or when the agent decides.</div>
+            <div class="help-label">Rounds start automatically</div>
+            <div class="help-desc">A new round begins ~20s after the lobby has enough players, or whenever the Aetherist decides.</div>
           </div>
         </div>
         <div class="help-row">
           <div class="help-icon red">&#x1F480;</div>
           <div>
-            <div class="help-label">Survive, race, collect, or compete</div>
-            <div class="help-desc">6 game types: survival, races, collecting, king of the hill, hot potato, and reach-the-goal.</div>
+            <div class="help-label">Six modes, picked live</div>
+            <div class="help-desc">Survival, Checkpoint Race, Collect-a-thon, King of the Hill, Hot Potato, Reach the Goal.</div>
           </div>
         </div>
       </div>
@@ -2909,7 +3002,7 @@
           <div class="help-icon purple">&#x2328;</div>
           <div>
             <div class="help-label">WASD move &middot; Space jump &middot; Shift sprint</div>
-            <div class="help-desc">Enter to chat &middot; L for leaderboard &middot; Mouse to look around</div>
+            <div class="help-desc">Enter to chat &middot; L toggles leaderboard &middot; drag mouse to look</div>
           </div>
         </div>
       </div>

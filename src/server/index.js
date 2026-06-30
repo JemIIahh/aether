@@ -480,7 +480,10 @@ app.post('/api/auth/privy', async (req, res) => {
 
   upsertUser(privyUserId, name, 'authenticated', { privyUserId, twitterUsername, twitterAvatar, walletAddress });
 
-  const token = signToken(privyUserId);
+  const token = signToken(privyUserId, {
+    name, type: 'authenticated',
+    twitterUsername, twitterAvatar, walletAddress,
+  });
   res.json({
     token,
     user: {
@@ -499,27 +502,37 @@ app.post('/api/auth/guest', (req, res) => {
 
   upsertUser(guestId, name, 'guest');
 
-  const token = signToken(guestId);
+  const token = signToken(guestId, { name, type: 'guest' });
   res.json({ token, user: { id: guestId, name, type: 'guest' } });
 });
 
 app.get('/api/me', requireAuth, async (req, res) => {
   const user = await findUser(req.user.id);
-  if (!user) {
-    const id = req.user.id;
-    const type = id.startsWith('guest-') ? 'guest' : 'authenticated';
-    // Don't leak the raw did:privy:xxx user id as a display name when the DB
-    // is offline. Derive a short, friendly fallback instead.
-    let name;
-    if (id.startsWith('guest-')) {
-      name = `Guest-${id.split('-')[1]}`;
-    } else {
-      const tail = id.slice(-6);
-      name = `Player-${tail}`;
-    }
-    return res.json({ id, name, type });
+  if (user) return res.json(user);
+
+  const id = req.user.id;
+  const type = req.user.type || (id.startsWith('guest-') ? 'guest' : 'authenticated');
+
+  // JWT-embedded identity is the best fallback — survives DB outage AND
+  // server restart, because it's signed into the user's session token.
+  if (req.user.name) {
+    return res.json({
+      id, type, name: req.user.name,
+      twitter_username: req.user.twitterUsername,
+      twitter_avatar: req.user.twitterAvatar,
+      wallet_address: req.user.walletAddress,
+    });
   }
-  res.json(user);
+
+  // Last-resort fallback for old tokens (issued before we embedded identity).
+  // Don't leak the raw did:privy:xxx user id as a display name.
+  let name;
+  if (id.startsWith('guest-')) {
+    name = `Guest-${id.split('-')[1]}`;
+  } else {
+    name = `Player-${id.slice(-6)}`;
+  }
+  return res.json({ id, name, type });
 });
 
 // ============================================
@@ -1778,8 +1791,16 @@ const broadcast = defaultArena.broadcastToRoom.bind(defaultArena);
 defaultArena.agentLoop = new AgentLoop(defaultArena.worldState, broadcast, { chain });
 defaultArena.agentLoop.start();
 
-// AI players for default arena — spawned lazily when a human joins, despawned when last human leaves
+// AI players are OFF by default. The two demo bots (Chaos Bot, Explorer Bot)
+// were cluttering the lobby for real players and made it look like the arena
+// was already populated. To re-enable for dev, hit POST /api/ai/enable from
+// the debug panel or set AI_PLAYERS=true explicitly in .env.
 defaultArena.aiPlayersEnabled = process.env.AI_PLAYERS === 'true';
+if (defaultArena.aiPlayersEnabled) {
+  console.log('[AI] Players enabled via AI_PLAYERS env — bots will spawn on first human join');
+} else {
+  console.log('[AI] Players disabled — enable via POST /api/ai/enable or AI_PLAYERS=true');
+}
 
 httpServer.listen(PORT, () => {
   console.log(`

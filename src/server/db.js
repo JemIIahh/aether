@@ -11,6 +11,12 @@ const { Pool } = pg;
 let pool = null;
 let dbAvailable = false;
 
+// In-memory user cache used when Postgres is unavailable. Without this, a user
+// who signs in, refreshes the page, and re-hits /api/me will get an empty
+// findUser() result and the server falls back to "Player-{last 6 of DID}" —
+// losing their Twitter handle / email identity across the refresh.
+const memoryUsers = new Map();
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,
@@ -107,6 +113,14 @@ export function isDBAvailable() {
 // --- Users ---
 
 export async function upsertUser(id, name, type = 'human', meta = {}) {
+  const existing = memoryUsers.get(id) || {};
+  memoryUsers.set(id, {
+    id, name, type,
+    twitter_username: meta.twitterUsername || existing.twitter_username || null,
+    twitter_avatar: meta.twitterAvatar || existing.twitter_avatar || null,
+    wallet_address: meta.walletAddress || existing.wallet_address || null,
+    created_at: existing.created_at || new Date().toISOString(),
+  });
   if (!dbAvailable) return;
   try {
     await pool.query(
@@ -127,17 +141,18 @@ export async function upsertUser(id, name, type = 'human', meta = {}) {
 }
 
 export async function findUser(id) {
-  if (!dbAvailable) return null;
-  try {
-    const result = await pool.query(
-      'SELECT id, name, type, twitter_username, twitter_avatar, wallet_address, created_at FROM users WHERE id = $1',
-      [id]
-    );
-    return result.rows[0] || null;
-  } catch (err) {
-    console.error('[DB] findUser error:', err.message);
-    return null;
+  if (dbAvailable) {
+    try {
+      const result = await pool.query(
+        'SELECT id, name, type, twitter_username, twitter_avatar, wallet_address, created_at FROM users WHERE id = $1',
+        [id]
+      );
+      if (result.rows[0]) return result.rows[0];
+    } catch (err) {
+      console.error('[DB] findUser error:', err.message);
+    }
   }
+  return memoryUsers.get(id) || null;
 }
 
 // --- Leaderboard ---

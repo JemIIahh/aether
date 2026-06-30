@@ -2786,7 +2786,22 @@ function clearCountdownInterval() {
   }
 }
 
+// Refresh the lobby UI every second while a countdown is running so the
+// "STARTS IN Xs" text actually ticks down. Cleared whenever the game leaves
+// the lobby or the countdown target is null.
+let _lobbyTickerId = null;
+function ensureLobbyTicker() {
+  const inLobby = state.gameState?.phase === 'lobby' && state.lobbyCountdownTarget;
+  if (inLobby && _lobbyTickerId === null) {
+    _lobbyTickerId = setInterval(updateGameStateUI, 1000);
+  } else if (!inLobby && _lobbyTickerId !== null) {
+    clearInterval(_lobbyTickerId);
+    _lobbyTickerId = null;
+  }
+}
+
 function updateGameStateUI() {
+  ensureLobbyTicker();
   const statusEl = document.getElementById('game-status');
   const phaseEl = document.getElementById('game-phase');
   const typeEl = document.getElementById('game-type');
@@ -2797,6 +2812,9 @@ function updateGameStateUI() {
     statusEl.className = 'lobby';
     if (state.lobbyCountdownTarget) {
       const now = Date.now();
+      const startsInMs = state.lobbyCountdownTarget - now;
+      const startsInSec = Math.max(0, Math.ceil(startsInMs / 1000));
+
       if (state.lobbyReadyAt && now < state.lobbyReadyAt) {
         // Warm-up countdown — show JUST the numeral. Tiny label above tells you
         // what it means. Animated tick on each second change for game feel.
@@ -2808,19 +2826,34 @@ function updateGameStateUI() {
           if (timerEl.textContent !== next) {
             timerEl.textContent = next;
             timerEl.classList.remove('tick');
-            void timerEl.offsetWidth; // force restart of the keyframe
+            void timerEl.offsetWidth;
             timerEl.classList.add('tick');
           }
         } else {
           timerEl.textContent = 'GO';
         }
         timerEl.style.color = '';
+      } else if (startsInSec > 0) {
+        // After warm-up: show the live countdown to the auto-start so players
+        // know the game is about to begin instead of feeling stuck on
+        // "The Aetherist is choosing...".
+        phaseEl.textContent = 'STARTS IN';
+        typeEl.textContent = 'The Aetherist is choosing the arena';
+        const next = `${startsInSec}s`;
+        if (timerEl.textContent !== next) {
+          timerEl.textContent = next;
+          timerEl.classList.remove('tick');
+          void timerEl.offsetWidth;
+          timerEl.classList.add('tick');
+        }
+        timerEl.style.color = startsInSec <= 5 ? '#e74c3c' : '';
       } else {
-        // Waiting for the agent to pick — keep it quiet, no fake countdown.
-        phaseEl.textContent = 'LOBBY';
-        typeEl.textContent = 'The Aetherist is choosing...';
-        timerEl.textContent = '';
-        timerEl.classList.remove('tick');
+        // Countdown elapsed but the round hasn't ticked over yet — keep
+        // a neutral message instead of going back to a fake state.
+        phaseEl.textContent = 'STARTING';
+        typeEl.textContent = '';
+        timerEl.textContent = 'GO';
+        timerEl.style.color = '';
       }
     } else {
       phaseEl.textContent = 'LOBBY';
@@ -2933,7 +2966,11 @@ async function connectToServer() {
   try {
     const client = new Client(SERVER_URL);
     const user = authUser?.user;
-    const playerName = user?.twitterUsername || user?.name || `Player-${Date.now().toString(36)}`;
+    // friendlyDisplayName never returns a raw did:privy:... — falls back to
+    // Player-{last 6} so chat / system messages read cleanly.
+    const playerName = user
+      ? friendlyDisplayName(user)
+      : `Player-${Date.now().toString(36)}`;
     const joinOptions = { name: playerName, arenaId: selectedArenaId };
 
     if (authUser?.token) {
@@ -4763,7 +4800,10 @@ async function init() {
   stopLandingScene();
   if (isDebug) document.getElementById('ui').style.display = 'block';
   const controlsEl = document.getElementById('controls');
-  controlsEl.style.display = 'block';
+  // Don't unhide controls if connectToServer already hid them for spectator mode —
+  // mid-game spectators see fly-cam controls in the banner, the JUMP/MOVE labels here
+  // would mislead them into thinking the game ignored their inputs.
+  controlsEl.style.display = isInSpectatorMode() ? 'none' : 'block';
   document.getElementById('chat-panel').style.display = 'flex';
   const helpBtn = document.getElementById('help-btn');
   helpBtn.style.display = 'flex';
